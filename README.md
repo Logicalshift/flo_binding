@@ -49,6 +49,15 @@ remains invalidated until it's read with `get()`, which avoids computing values
 for computed bindings that are never used. This can be used to integrate with
 traditional UI frameworks.
 
+Calling `when_changed()` will return a lifetime object: the event will stop firing
+when this object is dropped (or when `done()` is called on it). `keep_alive()` can
+be used to keep the event firing for as long as the binding exists if necessary.
+
+The event-driven approach to application design has many disadvantages: the need to
+manage event lifetimes is one, and another important one is the need to pass the
+actual bindings around in order to attach events to them, so `flo_binding` provides
+an alternative approach.
+
 ## Stream-driven architecture
 
 A superior alternative to the traditional OO-style event-driven architecture is

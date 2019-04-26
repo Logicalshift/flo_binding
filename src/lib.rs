@@ -43,19 +43,28 @@
 //! 
 //! ## Event-driven architecture
 //! 
-//! The `when_changed` function can be called to register a function that is called
+//! The `when_changed()` function can be called to register a function that is called
 //! whenever a binding's value becomes invalidated. Once invalidated, a binding
 //! remains invalidated until it's read with `get()`, which avoids computing values
 //! for computed bindings that are never used. This can be used to integrate with
 //! traditional UI frameworks.
 //! 
+//! Calling `when_changed()` will return a lifetime object: the event will stop firing
+//! when this object is dropped (or when `done()` is called on it). `keep_alive()` can
+//! be used to keep the event firing for as long as the binding exists if necessary.
+//! 
+//! The event-driven approach to application design has many disadvantages: the need to
+//! manage event lifetimes is one, and another important one is the need to pass the
+//! actual bindings around in order to attach events to them, so `flo_binding` provides
+//! an alternative approach.
+//! 
 //! ## Stream-driven architecture
 //! 
 //! A superior alternative to the traditional OO-style event-driven architecture is
-//! to take a stream-driven approach. Unlike events, streams can be combined or
-//! split, and it's possible to pass around a stream without also providing access
-//! to its source, which is a property that can be exploited to produce a less
-//! interdependent application. FlowBetween, the application that flo_binding was
+//! to take a stream-driven approach. Unlike events, streams manage their own lifetimes
+//! and can be combined or split, and it's possible to pass around a stream without also 
+//! providing access to its source, which is a property that can be exploited to produce 
+//! a less interdependent application. FlowBetween, the application that flo_binding was
 //! developed for is an example of a stream-driven application.
 //! 
 //! Calling `follow(binding)` will generate a stream of updates from a binding. This
