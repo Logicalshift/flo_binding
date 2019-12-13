@@ -39,7 +39,7 @@ struct FollowCore<TValue, Binding: Bound<TValue>> {
 ///
 /// Stream that follows the values of a binding
 /// 
-pub struct FollowStream<TValue: Send, Binding: Bound<TValue>> {
+pub struct FollowStream<TValue: Send+Unpin, Binding: Bound<TValue>> {
     /// The core of this future
     core: Arc<Desync<FollowCore<TValue, Binding>>>,
 
@@ -47,7 +47,7 @@ pub struct FollowStream<TValue: Send, Binding: Bound<TValue>> {
     watcher: Box<dyn Releasable>,
 }
 
-impl<TValue: 'static+Send, Binding: 'static+Bound<TValue>> Stream for FollowStream<TValue, Binding> {
+impl<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>> Stream for FollowStream<TValue, Binding> {
     type Item   = TValue;
     type Error  = ();
 
@@ -81,7 +81,7 @@ impl<TValue: 'static+Send, Binding: 'static+Bound<TValue>> Stream for FollowStre
 ///
 /// Creates a stream from a binding
 /// 
-pub fn follow<TValue: 'static+Send, Binding: 'static+Bound<TValue>>(binding: Binding) -> FollowStream<TValue, Binding> {
+pub fn follow<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>>(binding: Binding) -> FollowStream<TValue, Binding> {
     // Generate the initial core
     let core = FollowCore {
         state:      FollowState::Changed,
