@@ -162,7 +162,7 @@ mod test {
         // Read from the stream in the background
         let reader          = Desync::new(vec![]);
         let read_values     = reader.after(async move { 
-            let result: Vec<Option<i32>> = vec![
+            let result = vec![
                 stream.next().await,
                 stream.next().await
             ];
