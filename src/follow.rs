@@ -115,38 +115,39 @@ mod test {
     use super::*;
     use super::super::*;
 
+    use futures::prelude::*;
     use futures::executor;
-    use futures::executor::Notify;
-    use futures::executor::NotifyHandle;
 
     use std::thread;
     use std::time::Duration;
 
     struct NotifyNothing;
-    impl Notify for NotifyNothing {
-        fn notify(&self, _: usize) { }
-    }
 
     #[test]
     fn follow_stream_has_initial_value() {
         let binding     = bind(1);
         let bind_ref    = BindRef::from(binding.clone());
-        let mut stream  = executor::spawn(follow(bind_ref));
+        let mut stream  = follow(bind_ref);
 
-        assert!(stream.wait_stream() == Some(Ok(1)));
+        executor::block_on(async {
+            assert!(stream.next().await == Some(1));
+        });
     }
 
     #[test]
     fn follow_stream_updates() {
         let binding     = bind(1);
         let bind_ref    = BindRef::from(binding.clone());
-        let mut stream  = executor::spawn(follow(bind_ref));
+        let mut stream  = follow(bind_ref);
 
-        assert!(stream.wait_stream() == Some(Ok(1)));
-        binding.set(2);
-        assert!(stream.wait_stream() == Some(Ok(2)));
+        executor::block_on(async {
+            assert!(stream.next().await == Some(1));
+            binding.set(2);
+            assert!(stream.next().await == Some(2));
+        });
     }
 
+/*
     #[test]
     fn computed_updates_during_read() {
         let binding     = bind(1);
@@ -156,11 +157,12 @@ mod test {
             thread::sleep(Duration::from_millis(300));
             val
         });
-        let stream      = executor::spawn(follow(computed));
+        let stream      = follow(computed);
 
         // Read from the stream in the background
-        let reader = Desync::new((stream, None));
-        reader.desync(|(stream, ref mut val)| *val = stream.wait_stream());
+        let reader      = Desync::new(None);
+        let first_read  = reader.after(async { stream.next().await }, |val, read_val| { *val = read_val; read_val });
+        pipe_in(Arc::clone(&reader), stream, |(val, next)| *val = Some(next));
 
         // Short delay so the reader starts
         thread::sleep(Duration::from_millis(10));
@@ -169,11 +171,11 @@ mod test {
         binding.set(2);
 
         // First read should return '1'
-        assert!(reader.sync(|(_, val)| *val) == Some(Ok(1)));
+        assert!(reader.sync(|val| *val) == Some(1));
 
         // Second read should return '2'
-        let next = reader.sync(|(stream, _)| stream.wait_stream());
-        assert!(next == Some(Ok(2)));
+        let next = reader.sync(|val| stream.wait_stream());
+        assert!(next == Some(2));
     }
 
     #[test]
@@ -211,4 +213,5 @@ mod test {
         assert!(stream.wait_stream() == Some(Ok(1)));
         assert!(stream.wait_stream() == Some(Ok(2)));
     }
+    */
 }
