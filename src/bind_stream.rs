@@ -3,7 +3,7 @@ use super::releasable::*;
 use super::binding_context::*;
 
 use futures::*;
-use desync::*;
+use ::desync::*;
 
 use std::sync::*;
 

@@ -99,9 +99,6 @@
 //!
 #![warn(bare_trait_objects)]
 
-extern crate desync;
-extern crate futures;
-
 mod traits;
 pub mod binding_context;
 mod binding;

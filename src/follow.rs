@@ -5,7 +5,7 @@ use futures::*;
 use futures::task;
 use futures::task::{Poll};
 
-use desync::*;
+use ::desync::*;
 
 use std::pin::{Pin};
 use std::sync::*;
