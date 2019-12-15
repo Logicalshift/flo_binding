@@ -147,9 +147,9 @@ mod test {
         });
     }
 
-/*
     #[test]
     fn computed_updates_during_read() {
+        // Computed value that takes a while to calculate (so we can always 'lose' the race between reading the value and starting a new update)
         let binding     = bind(1);
         let bind_ref    = BindRef::from(binding.clone());
         let computed    = computed(move || {
@@ -157,12 +157,17 @@ mod test {
             thread::sleep(Duration::from_millis(300));
             val
         });
-        let stream      = follow(computed);
+        let mut stream  = follow(computed);
 
         // Read from the stream in the background
-        let reader      = Desync::new(None);
-        let first_read  = reader.after(async { stream.next().await }, |val, read_val| { *val = read_val; read_val });
-        pipe_in(Arc::clone(&reader), stream, |(val, next)| *val = Some(next));
+        let reader          = Desync::new(vec![]);
+        let read_values     = reader.after(async move { 
+            let result: Vec<Option<i32>> = vec![
+                stream.next().await,
+                stream.next().await
+            ];
+            result
+        }, |val, read_val| { *val = read_val; });
 
         // Short delay so the reader starts
         thread::sleep(Duration::from_millis(10));
@@ -170,14 +175,20 @@ mod test {
         // Update the binding
         binding.set(2);
 
+        // Wait for the values to be read from the stream
+        let values_read_from_stream = reader.sync(|val| val.clone());
+
         // First read should return '1'
-        assert!(reader.sync(|val| *val) == Some(1));
+        assert!(values_read_from_stream[0] == Some(1));
 
         // Second read should return '2'
-        let next = reader.sync(|val| stream.wait_stream());
-        assert!(next == Some(2));
+        assert!(values_read_from_stream[1] == Some(2));
+
+        // Finish the read_values future
+        executor::block_on(read_values).unwrap();
     }
 
+/*
     #[test]
     fn stream_is_unready_after_first_read() {
         let binding     = bind(1);
