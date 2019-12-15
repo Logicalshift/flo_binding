@@ -229,7 +229,7 @@ where Value: 'static+Clone+Send, TFn: 'static+Send+Sync+Fn() -> Value {
     fn mark_as_changed(&self) {
         // If the reference is still active, reconstitute a computed binding in order to call the mark_changed method
         if let Some(to_notify) = self.upgrade() {
-            let mut to_notify = ComputedBinding { core: to_notify };
+            let to_notify = ComputedBinding { core: to_notify };
             to_notify.mark_changed(false);
         } else if cfg!(debug_assertions) {
             // We can carry on here, but this suggests a memory leak - if the core has gone, then its owning object should have stopped this event from firing
