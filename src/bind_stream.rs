@@ -2,7 +2,7 @@ use super::traits::*;
 use super::releasable::*;
 use super::binding_context::*;
 
-use futures::*;
+use futures::prelude::*;
 use ::desync::*;
 
 use std::sync::*;
@@ -14,8 +14,7 @@ pub fn bind_stream<S, Value, UpdateFn>(stream: S, initial_value: Value, update: 
 where   S:          'static+Send+Stream+Unpin,
         Value:      'static+Send+Clone+PartialEq,
         UpdateFn:   'static+Send+FnMut(Value, S::Item) -> Value,
-        S::Item:    Send,
-        S::Error:   Send {
+        S::Item:    Send {
     // Create the content of the binding
     let value       = Arc::new(Mutex::new(initial_value));
     let core        = StreamBindingCore {
@@ -29,31 +28,27 @@ where   S:          'static+Send+Stream+Unpin,
     // Send in the stream
     pipe_in(Arc::clone(&core), stream, 
         move |core, next_item| {
-            if let Ok(next_item) = next_item {
-                // Only lock the value while updating it
-                let need_to_notify = {
-                    // Update the value
-                    let mut value = core.value.lock().unwrap();
-                    let new_value = update((*value).clone(), next_item);
+            // Only lock the value while updating it
+            let need_to_notify = {
+                // Update the value
+                let mut value = core.value.lock().unwrap();
+                let new_value = update((*value).clone(), next_item);
 
-                    if new_value != *value {
-                        // Update the value in the core
-                        *value = new_value;
+                if new_value != *value {
+                    // Update the value in the core
+                    *value = new_value;
 
-                        // Notify anything that's listening
-                        true
-                    } else {
-                        false
-                    }
-                };
-
-                // If the update changed the value, then call the notifications (with the lock released, in case any try to read the value)
-                if need_to_notify {
-                    core.notifications.retain(|notify| notify.is_in_use());
-                    core.notifications.iter().for_each(|notify| { notify.mark_as_changed(); });
+                    // Notify anything that's listening
+                    true
+                } else {
+                    false
                 }
-            } else {
-                // TODO: stream errors are currently ignored (not clear if we should handle them or not)
+            };
+
+            // If the update changed the value, then call the notifications (with the lock released, in case any try to read the value)
+            if need_to_notify {
+                core.notifications.retain(|notify| notify.is_in_use());
+                core.notifications.iter().for_each(|notify| { notify.mark_as_changed(); });
             }
         });
     
