@@ -119,7 +119,7 @@ mod test {
 
     use futures::stream;
     use futures::executor;
-    use futures::sync::mpsc;
+    use futures::channel::mpsc;
 
     use std::thread;
     use std::time::Duration;
@@ -128,7 +128,7 @@ mod test {
     pub fn stream_in_all_values() {
         // Stream with the values '1,2,3'
         let stream  = vec![1, 2, 3];
-        let stream  = stream::iter_ok::<_, ()>(stream.into_iter());
+        let stream  = stream::iter(stream.into_iter());
 
         // Send the stream to a new binding
         let binding = bind_stream(stream, 0, |_old_value, new_value| new_value);
@@ -143,7 +143,7 @@ mod test {
     pub fn stream_processes_updates() {
         // Stream with the values '1,2,3'
         let stream  = vec![1, 2, 3];
-        let stream  = stream::iter_ok::<_, ()>(stream.into_iter());
+        let stream  = stream::iter(stream.into_iter());
 
         // Send the stream to a new binding (with some processing)
         let binding = bind_stream(stream, 0, |_old_value, new_value| new_value + 42);
@@ -157,10 +157,10 @@ mod test {
     #[test]
     pub fn notifies_on_change() {
         // Create somewhere to send our notifications
-        let (sender, receiver) = mpsc::channel(0);
+        let (mut sender, receiver) = mpsc::channel(0);
 
         // Send the receiver stream to a new binding
-        let binding = bind_stream(receiver, 0, |_old_value, new_value| new_value);
+        let binding         = bind_stream(receiver, 0, |_old_value, new_value| new_value);
 
         // Create the notification
         let notified        = Arc::new(Mutex::new(false));
@@ -172,20 +172,21 @@ mod test {
         thread::sleep(Duration::from_millis(5));
         assert!(*notified.lock().unwrap() == false);
 
-        // Send a value to the sender
-        let mut sender = executor::spawn(sender);
-        sender.wait_send(42).unwrap();
+        executor::block_on(async {
+            // Send a value to the sender
+            sender.send(42).await.unwrap();
 
-        // Should get notified
-        thread::sleep(Duration::from_millis(5));
-        assert!(*notified.lock().unwrap() == true);
-        assert!(binding.get() == 42);
+            // Should get notified
+            thread::sleep(Duration::from_millis(5));
+            assert!(*notified.lock().unwrap() == true);
+            assert!(binding.get() == 42);
+        })
     }
 
     #[test]
     pub fn no_notification_on_no_change() {
         // Create somewhere to send our notifications
-        let (sender, receiver) = mpsc::channel(0);
+        let (mut sender, receiver) = mpsc::channel(0);
 
         // Send the receiver stream to a new binding
         let binding = bind_stream(receiver, 0, |_old_value, new_value| new_value);
@@ -200,13 +201,14 @@ mod test {
         thread::sleep(Duration::from_millis(5));
         assert!(*notified.lock().unwrap() == false);
 
-        // Send a value to the sender. This leaves the final value the same, so no notification should be generated.
-        let mut sender = executor::spawn(sender);
-        sender.wait_send(0).unwrap();
+        executor::block_on(async {
+            // Send a value to the sender. This leaves the final value the same, so no notification should be generated.
+            sender.send(0).await.unwrap();
 
-        // Should get notified
-        thread::sleep(Duration::from_millis(5));
-        assert!(*notified.lock().unwrap() == false);
-        assert!(binding.get() == 0);
+            // Should not get notified
+            thread::sleep(Duration::from_millis(5));
+            assert!(*notified.lock().unwrap() == false);
+            assert!(binding.get() == 0);
+        });
     }
 }
