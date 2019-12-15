@@ -207,31 +207,34 @@ mod test {
         assert!(stream.poll_next_unpin(&mut context) == Poll::Pending);
     }
 
-/*
     #[test]
-    fn stream_is_immediate_ready_after_write() {
+    fn stream_is_immediately_ready_after_write() {
         let binding     = bind(1);
         let bind_ref    = BindRef::from(binding.clone());
-        let mut stream  = executor::spawn(follow(bind_ref));
+        let waker       = Arc::new(NotifyNothing);
+        let waker       = waker_ref(&waker);
+        let mut context = Context::from_waker(&waker);
+        let mut stream  = follow(bind_ref);
 
-        assert!(stream.wait_stream() == Some(Ok(1)));
+        assert!(stream.poll_next_unpin(&mut context) == Poll::Ready(Some(1)));
         binding.set(2);
-        assert!(stream.poll_stream_notify(&NotifyHandle::from(&NotifyNothing), 1) == Ok(Async::Ready(Some(2))));
+        assert!(stream.poll_next_unpin(&mut context) == Poll::Ready(Some(2)));
     }
 
     #[test]
     fn will_wake_when_binding_is_updated() {
         let binding     = bind(1);
         let bind_ref    = BindRef::from(binding.clone());
-        let mut stream  = executor::spawn(follow(bind_ref));
+        let mut stream  = follow(bind_ref);
 
         thread::spawn(move || {
             thread::sleep(Duration::from_millis(100));
             binding.set(2);
         });
 
-        assert!(stream.wait_stream() == Some(Ok(1)));
-        assert!(stream.wait_stream() == Some(Ok(2)));
+        executor::block_on(async {
+            assert!(stream.next().await == Some(1));
+            assert!(stream.next().await == Some(2));
+        })
     }
-    */
 }
