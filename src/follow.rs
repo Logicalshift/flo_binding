@@ -3,10 +3,11 @@ use super::notify_fn::*;
 
 use futures::*;
 use futures::task;
-use futures::task::Task;
+use futures::task::{Poll};
 
 use desync::*;
 
+use std::pin::{Pin};
 use std::sync::*;
 use std::marker::PhantomData;
 
@@ -27,7 +28,7 @@ struct FollowCore<TValue, Binding: Bound<TValue>> {
     state: FollowState,
 
     /// What to notify when this item is changed
-    notify: Option<Task>,
+    notify: Option<task::Waker>,
 
     /// The binding that this is following
     binding: Arc<Binding>,
@@ -49,16 +50,15 @@ pub struct FollowStream<TValue: Send+Unpin, Binding: Bound<TValue>> {
 
 impl<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>> Stream for FollowStream<TValue, Binding> {
     type Item   = TValue;
-    type Error  = ();
 
-    fn poll(&mut self) -> Poll<Option<TValue>, ()> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Option<Self::Item>> {
         // If the core is in a 'changed' state, return the binding so we can fetch it
         // Want to fetch the binding value outside of the lock as it can potentially change during calculation
         let binding = self.core.sync(|core| {
             match core.state {
                 FollowState::Unchanged => {
                     // Wake this future when changed
-                    core.notify = Some(task::current());
+                    core.notify = Some(cx.waker().clone());
                     None
                 },
 
@@ -71,9 +71,9 @@ impl<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>> Stream for Foll
         });
 
         if let Some(binding) = binding {
-            Ok(Async::Ready(Some(binding.get())))
+            Poll::Ready(Some(binding.get()))
         } else {
-            Ok(Async::NotReady)
+            Poll::Pending
         }
     }
 }
@@ -99,7 +99,7 @@ pub fn follow<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>>(bindin
                 core.state = FollowState::Changed;
                 core.notify.take()
             });
-            task.map(|task| task.notify());
+            task.map(|task| task.wake());
         }
     })));
 
