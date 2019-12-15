@@ -117,11 +117,17 @@ mod test {
 
     use futures::prelude::*;
     use futures::executor;
+    use futures::task::{ArcWake, Context, waker_ref};
 
     use std::thread;
     use std::time::Duration;
 
     struct NotifyNothing;
+    impl ArcWake for NotifyNothing {
+        fn wake_by_ref(_arc_self: &Arc<Self>) {
+            // zzz
+        }
+    }
 
     #[test]
     fn follow_stream_has_initial_value() {
@@ -188,17 +194,20 @@ mod test {
         executor::block_on(read_values).unwrap();
     }
 
-/*
     #[test]
     fn stream_is_unready_after_first_read() {
         let binding     = bind(1);
         let bind_ref    = BindRef::from(binding.clone());
-        let mut stream  = executor::spawn(follow(bind_ref));
+        let waker       = Arc::new(NotifyNothing);
+        let waker       = waker_ref(&waker);
+        let mut context = Context::from_waker(&waker);
+        let mut stream  = follow(bind_ref);
 
-        assert!(stream.wait_stream() == Some(Ok(1)));
-        assert!(stream.poll_stream_notify(&NotifyHandle::from(&NotifyNothing), 1) == Ok(Async::NotReady));
+        assert!(stream.poll_next_unpin(&mut context) == Poll::Ready(Some(1)));
+        assert!(stream.poll_next_unpin(&mut context) == Poll::Pending);
     }
 
+/*
     #[test]
     fn stream_is_immediate_ready_after_write() {
         let binding     = bind(1);
