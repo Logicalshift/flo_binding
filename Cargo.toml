@@ -13,5 +13,5 @@ keywords        = ["reactive", "parametric", "binding", "event"]
 categories      = ["algorithms","asynchronous","data-structures","gui"]
 
 [dependencies]
-desync          = { git = "https://github.com/Logicalshift/desync", branch="develop", version="0.5" }
+desync          = "0.5"
 futures         = "0.3"
