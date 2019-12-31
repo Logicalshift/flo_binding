@@ -1,6 +1,6 @@
 [package]
 name            = "flo_binding"
-version         = "1.1.0"
+version         = "1.2.0"
 authors         = ["Andrew Hunter"]
 license         = "Apache-2.0"
 edition         = "2018"
@@ -13,5 +13,5 @@ keywords        = ["reactive", "parametric", "binding", "event"]
 categories      = ["algorithms","asynchronous","data-structures","gui"]
 
 [dependencies]
-desync          = "0.5"
+desync          = { git = "https://github.com/Logicalshift/desync", branch="develop", version = "0.6" }
 futures         = "0.3"
