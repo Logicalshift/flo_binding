@@ -50,6 +50,8 @@ where   S:          'static+Send+Stream+Unpin,
                 core.notifications.retain(|notify| notify.is_in_use());
                 core.notifications.iter().for_each(|notify| { notify.mark_as_changed(); });
             }
+
+            Box::pin(future::ready(()))
         });
     
     StreamBinding {

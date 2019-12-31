@@ -115,7 +115,6 @@ mod test {
     use super::*;
     use super::super::*;
 
-    use futures::prelude::*;
     use futures::executor;
     use futures::task::{ArcWake, Context, waker_ref};
 
