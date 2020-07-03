@@ -108,6 +108,7 @@ mod notify_fn;
 mod releasable;
 mod follow;
 mod bind_stream;
+mod rope_binding;
 
 pub use self::traits::*;
 pub use self::binding::*;
@@ -116,6 +117,7 @@ pub use self::bindref::*;
 pub use self::notify_fn::*;
 pub use self::follow::*;
 pub use self::bind_stream::*;
+pub use self::rope_binding::*;
 
 ///
 /// Creates a simple bound value with the specified initial value
