@@ -8,6 +8,20 @@ use ::desync::*;
 use std::sync::*;
 
 ///
+/// The core of a rope binding represents the data that's shared amongst all ropes
+///
+struct RopeBindingCore<Cell, Attribute> 
+where
+Cell:       Clone+PartialEq,
+Attribute:  Clone+PartialEq+Default {
+    /// The rope that stores this binding
+    rope: PullRope<AttributedRope<Cell, Attribute>, Box<dyn Fn() -> ()+Send+Sync>>,
+
+    // List of things to call when this binding changes
+    when_changed: Vec<ReleasableNotifiable>
+}
+
+///
 /// A rope binding binds a vector of cells and attributes
 ///
 /// It's also possible to use a normal `Binding<Vec<_>>` for this purpose. A rope binding has a
@@ -18,23 +32,26 @@ pub struct RopeBinding<Cell, Attribute>
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
 Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
-    /// The rope used as stoage for this binding
-    rope: Desync<PullRope<AttributedRope<Cell, Attribute>, Box<dyn Fn() -> ()+Send+Sync>>>,
-
-    // List of things to call when this binding changes
-    when_changed: Mutex<Vec<ReleasableNotifiable>>
+    /// The core of this binding
+    core: Arc<Desync<RopeBindingCore<Cell, Attribute>>>
 }
 
-impl<Cell, Attribute> RopeBinding<Cell, Attribute>
+impl<Cell, Attribute> RopeBindingCore<Cell, Attribute>
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
 Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
     ///
     /// If there are any notifiables in this object that aren't in use, remove them
     ///
-    fn filter_unused_notifications(&self) {
-        self.when_changed.lock().unwrap().retain(|releasable| releasable.is_in_use());
+    fn filter_unused_notifications(&mut self) {
+        self.when_changed.retain(|releasable| releasable.is_in_use());
     }
+}
+
+impl<Cell, Attribute> RopeBinding<Cell, Attribute>
+where 
+Cell:       'static+Send+Unpin+Clone+PartialEq,
+Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
 }
 
 impl<Cell, Attribute> Changeable for RopeBinding<Cell, Attribute>
@@ -54,10 +71,13 @@ Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
     /// (if the event never seems to fire, this is likely to be the problem)
     ///
     fn when_changed(&self, what: Arc<dyn Notifiable>) -> Box<dyn Releasable> {
-        let releasable = ReleasableNotifiable::new(what);
-        self.when_changed.lock().unwrap().push(releasable.clone_as_owned());
+        let releasable      = ReleasableNotifiable::new(what);
+        let core_releasable = releasable.clone_as_owned();
 
-        self.filter_unused_notifications();
+        self.core.desync(move |core| {
+            core.when_changed.push(core_releasable);
+            core.filter_unused_notifications();
+        });
 
         Box::new(releasable)
     }
@@ -67,16 +87,40 @@ Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
 ///
 /// Trait implemented by something that is bound to a value
 ///
-impl<Cell, Attribute> Bound<Vec<Cell>> for RopeBinding<Cell, Attribute>
+impl<Cell, Attribute> Bound<AttributedRope<Cell, Attribute>> for RopeBinding<Cell, Attribute>
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
 Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
     ///
     /// Retrieves the value stored by this binding
     ///
-    fn get(&self) -> Vec<Cell> {
-        self.rope.sync(|rope| {
-            rope.read_cells(0..rope.len()).cloned().collect()
+    fn get(&self) -> AttributedRope<Cell, Attribute> {
+        self.core.sync(|core| {
+            // Create a new rope from the existing one
+            let mut rope_copy   = AttributedRope::new();
+
+            // Copy each attribute block one at a time
+            let len             = core.rope.len();
+            let mut pos         = 0;
+
+            while pos < len {
+                // Read the next range of attributes
+                let (attr, range)   = core.rope.read_attributes(pos);
+                if range.len() == 0 {
+                    pos += 1;
+                    continue;
+                }
+
+                // Write to the copy
+                let attr    = attr.clone();
+                let cells   = core.rope.read_cells(range.clone()).cloned();
+                rope_copy.replace_attributes(pos..pos, cells, attr);
+
+                // Continue writing at the end of the new rope
+                pos         = range.end;
+            }
+
+            rope_copy
         })
     }
 }
