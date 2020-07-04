@@ -4,6 +4,7 @@ use super::releasable::*;
 use flo_rope::*;
 use flo_stream::*;
 use ::desync::*;
+use futures::prelude::*;
 
 use std::sync::*;
 
@@ -46,12 +47,60 @@ Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
     fn filter_unused_notifications(&mut self) {
         self.when_changed.retain(|releasable| releasable.is_in_use());
     }
+
+    ///
+    /// Callback: the rope has changes to pull
+    ///
+    fn on_pull(&mut self) {
+        self.filter_unused_notifications();
+
+        // Notify anything that's listening
+        for notifiable in &self.when_changed {
+            notifiable.mark_as_changed();
+        }
+    }
 }
 
 impl<Cell, Attribute> RopeBinding<Cell, Attribute>
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
 Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
+    ///
+    /// Creates a new rope binding from a stream of changes
+    ///
+    pub fn from_stream<S: 'static+Stream<Item=RopeAction<Cell, Attribute>>+Unpin+Send>(stream: S) -> RopeBinding<Cell, Attribute> {
+        // Create the core
+        let core        = RopeBindingCore {
+            rope:           PullRope::from(AttributedRope::new(), Box::new(|| { })),
+            when_changed:   vec![]
+        };
+
+        let core        = Arc::new(Desync::new(core));
+
+        // Recreate the rope in the core with a version that responds to pull events
+        let weak_core   = Arc::downgrade(&core);
+        core.sync(move |core| {
+            core.rope = PullRope::from(AttributedRope::new(), Box::new(move || {
+                // Pass the event through to the core
+                let core = weak_core.upgrade();
+                if let Some(core) = core {
+                    core.desync(|core| core.on_pull());
+                }
+            }));
+        });
+
+        // Push changes through to the core rope from the stream
+        pipe_in(Arc::clone(&core), stream, |core, actions| {
+            async move {
+                core.rope.edit(actions);
+            }.boxed()
+        });
+
+        // Create the binding
+        RopeBinding {
+            core
+        }
+    }
 }
 
 impl<Cell, Attribute> Changeable for RopeBinding<Cell, Attribute>
