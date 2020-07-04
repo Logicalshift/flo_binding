@@ -2,6 +2,7 @@ use super::traits::*;
 use super::releasable::*;
 
 use flo_rope::*;
+use flo_stream::*;
 use ::desync::*;
 
 use std::sync::*;
