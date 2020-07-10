@@ -2,11 +2,11 @@ use super::traits::*;
 use super::releasable::*;
 
 use flo_rope::*;
-use flo_stream::*;
 use ::desync::*;
 use futures::prelude::*;
 
 use std::sync::*;
+use std::collections::{VecDeque};
 
 ///
 /// The core of a rope binding represents the data that's shared amongst all ropes
@@ -18,8 +18,28 @@ Attribute:  Clone+PartialEq+Default {
     /// The rope that stores this binding
     rope: PullRope<AttributedRope<Cell, Attribute>, Box<dyn Fn() -> ()+Send+Sync>>,
 
+    /// The states of any streams reading from this rope
+    stream_states: Vec<RopeStreamState<Cell, Attribute>>,
+
+    /// The next ID to assign to a stream state
+    next_stream_id: usize,
+
     // List of things to call when this binding changes
     when_changed: Vec<ReleasableNotifiable>
+}
+
+///
+/// The state of a stream that is reading from a rope binding core
+///
+struct RopeStreamState<Cell, Attribute>
+where
+Cell:       Clone+PartialEq,
+Attribute:  Clone+PartialEq+Default {
+    /// The identifier for this stream
+    identifier: usize,
+
+    /// The changes that are waiting to be sent to this stream
+    pending_changes: VecDeque<RopeAction<Cell, Attribute>>
 }
 
 ///
@@ -29,18 +49,37 @@ Attribute:  Clone+PartialEq+Default {
 /// couple of advantages though: it can handle very large collections of items and it can notify
 /// only the relevant changes instead of always notifying the entire structure.
 ///
+/// Rope bindings are ideal for representing text areas in user interfaces, but can be used for
+/// any collection data structure.
+///
 pub struct RopeBinding<Cell, Attribute> 
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
+Attribute:  'static+Send+Sync+Unpin+Clone+PartialEq+Default {
     /// The core of this binding
-    core: Arc<Desync<RopeBindingCore<Cell, Attribute>>>
+    core: Arc<Desync<RopeBindingCore<Cell, Attribute>>>,
+}
+
+///
+/// A rope stream monitors a rope binding, and supplies them as a stream so they can be mirrored elsewhere
+///
+/// An example of a use for a rope stream is to send updates from a rope to a user interface.
+///
+pub struct RopeStream<Cell, Attribute> 
+where 
+Cell:       'static+Send+Unpin+Clone+PartialEq,
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    /// The core of the rope
+    core: Arc<Desync<RopeBindingCore<Cell, Attribute>>>,
+
+    /// The notification that wakes up this stream
+    notification: Box<dyn Releasable>
 }
 
 impl<Cell, Attribute> RopeBindingCore<Cell, Attribute>
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     ///
     /// If there are any notifiables in this object that aren't in use, remove them
     ///
@@ -64,7 +103,7 @@ Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
 impl<Cell, Attribute> RopeBinding<Cell, Attribute>
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     ///
     /// Creates a new rope binding from a stream of changes
     ///
@@ -72,6 +111,8 @@ Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
         // Create the core
         let core        = RopeBindingCore {
             rope:           PullRope::from(AttributedRope::new(), Box::new(|| { })),
+            stream_states:  vec![],
+            next_stream_id: 0,   
             when_changed:   vec![]
         };
 
@@ -106,7 +147,7 @@ Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
 impl<Cell, Attribute> Changeable for RopeBinding<Cell, Attribute>
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     ///
     /// Supplies a function to be notified when this item is changed
     /// 
@@ -139,7 +180,7 @@ Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
 impl<Cell, Attribute> Bound<AttributedRope<Cell, Attribute>> for RopeBinding<Cell, Attribute>
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+PartialEq+Default {
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     ///
     /// Retrieves the value stored by this binding
     ///
