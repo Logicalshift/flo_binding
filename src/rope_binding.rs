@@ -98,6 +98,19 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             notifiable.mark_as_changed();
         }
     }
+
+    ///
+    /// Pulls values from the rope and send to all attached streams
+    ///
+    fn pull_rope(&mut self) {
+        // Collect the actions
+        let actions = self.rope.pull_changes().collect::<Vec<_>>();
+
+        // Push to each stream
+        for stream in self.stream_states.iter_mut() {
+            stream.pending_changes.extend(actions.iter().cloned());
+        }
+    }
 }
 
 impl<Cell, Attribute> RopeBinding<Cell, Attribute>
