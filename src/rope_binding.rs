@@ -3,8 +3,10 @@ use super::releasable::*;
 
 use flo_rope::*;
 use ::desync::*;
+use futures::task::*;
 use futures::prelude::*;
 
+use std::pin::*;
 use std::sync::*;
 use std::collections::{VecDeque};
 
@@ -71,6 +73,12 @@ Cell:       'static+Send+Unpin+Clone+PartialEq,
 Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// The core of the rope
     core: Arc<Desync<RopeBindingCore<Cell, Attribute>>>,
+
+    /// A future that will return the next poll result
+    poll_future: Option<Box<dyn Unpin+Future<Output=Poll<Option<VecDeque<RopeAction<Cell, Attribute>>>>>>>,
+
+    /// The actions that are currently being drained through this stream
+    draining: VecDeque<RopeAction<Cell, Attribute>>,
 
     /// The notification that wakes up this stream
     notification: Box<dyn Releasable>
@@ -225,5 +233,49 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
             rope_copy
         })
+    }
+}
+
+impl<Cell, Attribute> Stream for RopeStream<Cell, Attribute>
+where 
+Cell:       'static+Send+Unpin+Clone+PartialEq,
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    type Item = RopeAction<Cell,Attribute>;
+
+    fn poll_next(mut self: Pin<&mut Self>, ctxt: &mut Context<'_>) -> Poll<Option<RopeAction<Cell, Attribute>>> { 
+        // If we've got a set of actions we're already reading, then return those as fast as we can
+        if self.draining.len() > 0 {
+            return Poll::Ready(self.draining.pop_back());
+        }
+
+        // If we're waiting for the core to return to us, borrow the future from there
+        let poll_future     = self.poll_future.take();
+        let mut poll_future = if let Some(poll_future) = poll_future {
+            // We're already waiting for the core to get back to us
+            poll_future
+        } else {
+            // Ask the core for the next stream state
+            unimplemented!()
+        };
+
+        // Ask the future for the latest update on this stream
+        let future_result = poll_future.poll_unpin(ctxt);
+
+        match future_result {
+            Poll::Ready(Poll::Ready(Some(actions))) => {
+                if actions.len() == 0 {
+                    // Need to wait until the rope signals a 'pull' event
+                    unimplemented!()
+                } else {
+                    // Have some actions ready
+                    self.draining = actions;
+                    Poll::Ready(self.draining.pop_back())
+                }
+            }
+
+            Poll::Ready(Poll::Ready(None))  => Poll::Ready(None),
+            Poll::Ready(Poll::Pending)      => Poll::Pending,           // TODO: notify when the rope notifies that it's pulled
+            Poll::Pending                   => Poll::Pending
+        }
     }
 }
