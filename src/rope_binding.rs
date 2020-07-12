@@ -409,3 +409,16 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         }
     }
 }
+
+impl<Cell, Attribute> Drop for RopeStream<Cell, Attribute>
+where 
+Cell:       'static+Send+Unpin+Clone+PartialEq,
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    fn drop(&mut self) {
+        // Remove the stream state when the stream is no more
+        let dropped_stream_id = self.identifier;
+        self.core.desync(move |core| {
+            core.stream_states.retain(|state| state.identifier != dropped_stream_id);
+        });
+    }
+}
