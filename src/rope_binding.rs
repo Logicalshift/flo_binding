@@ -19,6 +19,9 @@ struct RopeBindingCore<Cell, Attribute>
 where
 Cell:       Clone+PartialEq,
 Attribute:  Clone+PartialEq+Default {
+    /// The number of items that are using hte core
+    usage_count: usize,
+
     /// The rope that stores this binding
     rope: PullRope<AttributedRope<Cell, Attribute>, Box<dyn Fn() -> ()+Send+Sync>>,
 
@@ -136,6 +139,7 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     pub fn from_stream<S: 'static+Stream<Item=RopeAction<Cell, Attribute>>+Unpin+Send>(stream: S) -> RopeBinding<Cell, Attribute> {
         // Create the core
         let core        = RopeBindingCore {
+            usage_count:    1,
             rope:           PullRope::from(AttributedRope::new(), Box::new(|| { })),
             stream_states:  vec![],
             next_stream_id: 0,   
@@ -167,6 +171,23 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         RopeBinding {
             core
         }
+    }
+}
+
+impl<Cell, Attribute> Drop for RopeBinding<Cell, Attribute>
+where 
+Cell:       'static+Send+Unpin+Clone+PartialEq,
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    fn drop(&mut self) {
+        self.core.desync(|core| {
+            // Core is no longer in use
+            core.usage_count -= 1;
+
+            // Counts as a notification if this is the last binding using this core
+            if core.usage_count == 0 {
+                core.pull_rope();
+            }
+        })
     }
 }
 
@@ -277,6 +298,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
                         mem::swap(&mut changes, &mut stream_state.pending_changes);
 
                         Poll::Ready(Some(changes))
+                    } else if core.usage_count == 0 {
+                        // No changes, and nothing is using the core any more
+                        Poll::Ready(None)
                     } else {
                         // No changes are waiting
                         Poll::Pending
