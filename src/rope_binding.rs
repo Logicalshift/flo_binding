@@ -45,6 +45,9 @@ Attribute:  Clone+PartialEq+Default {
     /// The identifier for this stream
     identifier: usize,
 
+    /// The waker for the current stream
+    waker: Option<Waker>,
+
     /// The changes that are waiting to be sent to this stream
     pending_changes: VecDeque<RopeAction<Cell, Attribute>>
 }
@@ -126,6 +129,23 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         for stream in self.stream_states.iter_mut() {
             stream.pending_changes.extend(actions.iter().cloned());
         }
+
+        // Wake all of the streams
+        for stream in self.stream_states.iter_mut() {
+            let waker = stream.waker.take();
+            waker.map(|waker| waker.wake());
+        }
+    }
+
+    ///
+    /// Wakes a particular stream when the rope changes
+    ///
+    fn wake_stream(&mut self, stream_id: usize, waker: Waker) {
+        self.stream_states
+            .iter_mut()
+            .filter(|state| state.identifier == stream_id)
+            .nth(0)
+            .map(move |state| state.waker = Some(waker));
     }
 }
 
@@ -323,8 +343,15 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         match future_result {
             Poll::Ready(Poll::Ready(Some(actions))) => {
                 if actions.len() == 0 {
-                    // Need to wait until the rope signals a 'pull' event
-                    unimplemented!()
+                    // Nothing waiting: need to wait until the rope signals a 'pull' event
+                    let waker       = ctxt.waker().clone();
+                    let stream_id   = self.identifier;
+
+                    self.core.desync(move |core| {
+                        core.wake_stream(stream_id, waker);
+                    });
+
+                    Poll::Pending
                 } else {
                     // Have some actions ready
                     self.draining = actions;
@@ -333,7 +360,17 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             }
 
             Poll::Ready(Poll::Ready(None))  => Poll::Ready(None),
-            Poll::Ready(Poll::Pending)      => Poll::Pending,           // TODO: notify when the rope notifies that it's pulled
+            Poll::Ready(Poll::Pending)      => {
+                // Wake when the rope generates a 'pull' event
+                let waker       = ctxt.waker().clone();
+                let stream_id   = self.identifier;
+
+                self.core.desync(move |core| {
+                    core.wake_stream(stream_id, waker);
+                });
+
+                Poll::Pending
+            }
 
             Poll::Pending                   => {
                 // Poll the future again when it notifies
