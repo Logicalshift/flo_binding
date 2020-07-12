@@ -90,9 +90,6 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
     /// The actions that are currently being drained through this stream
     draining: VecDeque<RopeAction<Cell, Attribute>>,
-
-    /// The notification that wakes up this stream
-    notification: Box<dyn Releasable>
 }
 
 impl<Cell, Attribute> RopeBindingCore<Cell, Attribute>
@@ -190,6 +187,38 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         // Create the binding
         RopeBinding {
             core
+        }
+    }
+
+    ///
+    /// Creates a stream that follows the changes to this rope
+    ///
+    pub fn follow_changes(&self) -> RopeStream<Cell, Attribute> {
+        // Fetch an ID for the next stream from the core and generate a state
+        let stream_id = self.core.sync(|core| {
+            // Assign an ID to the stream
+            let next_id = core.next_stream_id;
+            core.next_stream_id += 1;
+
+            // Create a state for this stream
+            let state = RopeStreamState {
+                identifier:         next_id,
+                waker:              None,
+                pending_changes:    VecDeque::new()
+            };
+            core.stream_states.push(state);
+
+            // Return the stream ID
+            next_id
+        });
+
+        // Create the stream
+        RopeStream {
+            identifier:     stream_id,
+            core:           self.core.clone(),
+            poll_future:    None,
+            draining:       VecDeque::new(),
+
         }
     }
 }
