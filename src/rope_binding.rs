@@ -457,6 +457,64 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
         }
     }
+
+    ///
+    /// Returns the number of cells in this rope
+    ///
+    pub fn len(&self) -> usize {
+        self.core.sync(|core| core.rope.len())
+    }
+
+    ///
+    /// Reads the cell values for a range in this rope
+    ///
+    pub fn read_cells<'a>(&'a self, range: Range<usize>) -> impl 'a+Iterator<Item=Cell> {
+        // Read this range of cells by cloning from the core
+        let cells = self.core.sync(|core| core.rope.read_cells(range).cloned().collect::<Vec<_>>());
+
+        cells.into_iter()
+    }
+
+    ///
+    /// Returns the attributes set at the specified location and their extent
+    ///
+    pub fn read_attributes<'a>(&'a self, pos: usize) -> (Attribute, Range<usize>) {
+        let (attribute, range) = self.core.sync(|core| {
+            let (attribute, range) = core.rope.read_attributes(pos);
+            (attribute.clone(), range)
+        });
+
+        (attribute, range)
+    }
+
+    /// 
+    /// Performs the specified editing action to this rope
+    ///
+    pub fn edit(&mut self, action: RopeAction<Cell, Attribute>) {
+        self.core.desync(move |core| core.rope.edit(action));
+    }
+
+    ///
+    /// Replaces a range of cells. The attributes applied to the new cells will be the same
+    /// as the attributes that were applied to the first cell in the replacement range
+    ///
+    pub fn replace<NewCells: 'static+Send+IntoIterator<Item=Cell>>(&mut self, range: Range<usize>, new_cells: NewCells) {
+        self.core.desync(move |core| core.rope.replace(range, new_cells));
+    }
+
+    ///
+    /// Sets the attributes for a range of cells
+    ///
+    pub fn set_attributes(&mut self, range: Range<usize>, new_attributes: Attribute) {
+        self.core.desync(move |core| core.rope.set_attributes(range, new_attributes));
+    }
+
+    ///
+    /// Replaces a range of cells and sets the attributes for them.
+    ///
+    pub fn replace_attributes<NewCells: 'static+Send+IntoIterator<Item=Cell>>(&mut self, range: Range<usize>, new_cells: NewCells, new_attributes: Attribute) {
+        self.core.desync(move |core| core.rope.replace_attributes(range, new_cells, new_attributes));
+    }
 }
 
 impl<Cell, Attribute> Clone for RopeBindingMut<Cell, Attribute>
