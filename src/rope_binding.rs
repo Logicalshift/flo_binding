@@ -122,6 +122,11 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         // Collect the actions
         let actions = self.rope.pull_changes().collect::<Vec<_>>();
 
+        // Don't wake anything if there are no actions to perform
+        if actions.len() == 0 {
+            return;
+        }
+
         // Push to each stream
         for stream in self.stream_states.iter_mut() {
             stream.pending_changes.extend(actions.iter().cloned());
@@ -142,7 +147,22 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             .iter_mut()
             .filter(|state| state.identifier == stream_id)
             .nth(0)
-            .map(move |state| state.waker = Some(waker));
+            .map(move |state| {
+                if state.pending_changes.len() == 0 {
+                    // There are no pending values so we should wait for the rope to pull some extra data
+
+                    // Wake the stream when there's some more data to receive
+                    state.waker = Some(waker);
+                } else {
+                    // There are pending values so we should immediately re-awaken the stream
+
+                    // Disable the waker in case there's a stale one
+                    state.waker = None;
+
+                    // Wake the stream so it reads the next value
+                    waker.wake();
+                }
+            });
     }
 }
 
