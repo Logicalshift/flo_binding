@@ -5,7 +5,9 @@ use flo_rope::*;
 use ::desync::*;
 use futures::task::*;
 use futures::prelude::*;
+use futures::future::{BoxFuture};
 
+use std::mem;
 use std::pin::*;
 use std::sync::*;
 use std::collections::{VecDeque};
@@ -71,11 +73,14 @@ pub struct RopeStream<Cell, Attribute>
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
 Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    /// The identifier for this stream
+    identifier: usize,
+
     /// The core of the rope
     core: Arc<Desync<RopeBindingCore<Cell, Attribute>>>,
 
     /// A future that will return the next poll result
-    poll_future: Option<Box<dyn Unpin+Future<Output=Poll<Option<VecDeque<RopeAction<Cell, Attribute>>>>>>>,
+    poll_future: Option<BoxFuture<'static, Poll<Option<VecDeque<RopeAction<Cell, Attribute>>>>>>,
 
     /// The actions that are currently being drained through this stream
     draining: VecDeque<RopeAction<Cell, Attribute>>,
@@ -255,7 +260,37 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             poll_future
         } else {
             // Ask the core for the next stream state
-            unimplemented!()
+            let stream_id = self.identifier;
+
+            self.core.future(move |core| {
+                async move {
+                    // Find the state of this stream
+                    let stream_state = core.stream_states.iter_mut()
+                        .filter(|state| state.identifier == stream_id)
+                        .nth(0)
+                        .unwrap();
+
+                    // Check for data
+                    if stream_state.pending_changes.len() > 0 {
+                        // Return the changes to the waiting stream
+                        let mut changes = VecDeque::new();
+                        mem::swap(&mut changes, &mut stream_state.pending_changes);
+
+                        Poll::Ready(Some(changes))
+                    } else {
+                        // No changes are waiting
+                        Poll::Pending
+                    }
+                }.boxed()
+            })
+            .map(|result| {
+                // Error would indicate the core had gone away before the request should complete, so we signal this as an end-of-stream event
+                match result {
+                    Ok(result)  => result,
+                    Err(_)      => Poll::Ready(None)
+                }
+            })
+            .boxed()
         };
 
         // Ask the future for the latest update on this stream
@@ -275,7 +310,12 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
             Poll::Ready(Poll::Ready(None))  => Poll::Ready(None),
             Poll::Ready(Poll::Pending)      => Poll::Pending,           // TODO: notify when the rope notifies that it's pulled
-            Poll::Pending                   => Poll::Pending
+
+            Poll::Pending                   => {
+                // Poll the future again when it notifies
+                self.poll_future = Some(poll_future);
+                Poll::Pending
+            }
         }
     }
 }
