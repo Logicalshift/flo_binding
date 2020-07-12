@@ -243,6 +243,20 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     }
 }
 
+impl<Cell, Attribute> Clone for RopeBinding<Cell, Attribute>
+where 
+Cell:       'static+Send+Unpin+Clone+PartialEq,
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    fn clone(&self) -> RopeBinding<Cell, Attribute> {
+        // Increase the usage count
+        let core = self.core.clone();
+        core.desync(|core| core.usage_count += 1);
+
+        // Create a new binding with the same core
+        RopeBinding { core }
+    }
+}
+
 impl<Cell, Attribute> Drop for RopeBinding<Cell, Attribute>
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
