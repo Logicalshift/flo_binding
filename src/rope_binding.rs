@@ -10,6 +10,7 @@ use futures::future::{BoxFuture};
 use std::mem;
 use std::pin::*;
 use std::sync::*;
+use std::ops::{Range};
 use std::collections::{VecDeque};
 
 ///
@@ -254,6 +255,38 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             draining:       VecDeque::new(),
 
         }
+    }
+}
+
+impl<Cell, Attribute> Rope for RopeBinding<Cell, Attribute>
+where 
+Cell:       'static+Send+Unpin+Clone+PartialEq,
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    /// A 'cell' or character in the rope. For a UTF-8 rope this could be `u8`, for xample
+    type Cell = Cell;
+
+    /// The type of an attribute in the rope. Every cell range has an attribute attached to it
+    type Attribute = Attribute;
+
+    ///
+    /// Returns the number of cells in this rope
+    ///
+    fn len(&self) -> usize {
+        self.core.sync(|core| core.rope.len())
+    }
+
+    ///
+    /// Reads the cell values for a range in this rope
+    ///
+    fn read_cells<'a>(&'a self, range: Range<usize>) -> Box<dyn 'a+Iterator<Item=&Self::Cell>> {
+        unimplemented!()
+    }
+
+    ///
+    /// Returns the attributes set at the specified location and their extent
+    ///
+    fn read_attributes<'a>(&'a self, pos: usize) -> (&'a Self::Attribute, Range<usize>) {
+        unimplemented!()
     }
 }
 
