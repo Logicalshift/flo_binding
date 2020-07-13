@@ -102,7 +102,6 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             core:           self.core.clone(),
             poll_future:    None,
             draining:       VecDeque::new(),
-
         }
     }
 
