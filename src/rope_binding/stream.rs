@@ -56,6 +56,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
             self.core.future(move |core| {
                 async move {
+                    // Pull any pending changes from the rope
+                    core.pull_rope();
+
                     // Find the state of this stream
                     let stream_state = core.stream_states.iter_mut()
                         .filter(|state| state.identifier == stream_id)
