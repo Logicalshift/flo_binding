@@ -42,11 +42,18 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// Callback: the rope has changes to pull
     ///
     pub (super) fn on_pull(&mut self) {
+        // Clear out any notifications that are not being used any more
         self.filter_unused_notifications();
 
         // Notify anything that's listening
         for notifiable in &self.when_changed {
             notifiable.mark_as_changed();
+        }
+
+        // Wake any streams that are waiting for changes to be pulled
+        for stream in self.stream_states.iter_mut() {
+            let waker = stream.waker.take();
+            waker.map(|waker| waker.wake());
         }
     }
 
