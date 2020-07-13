@@ -5,7 +5,6 @@ use flo_rope::*;
 use futures::executor;
 use futures::prelude::*;
 
-/*
 #[test]
 fn mutable_rope_sends_changes_to_stream() {
     // Create a rope that copies changes from a mutable rope
@@ -37,4 +36,3 @@ fn pull_from_mutable_binding() {
     assert!(rope_copy.len() == 4);
     assert!(rope_copy.read_cells(0..4).collect::<Vec<_>>() == vec![1, 2, 3, 4]);
 }
-*/
