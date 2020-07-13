@@ -76,7 +76,8 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             let state = RopeStreamState {
                 identifier:         next_id,
                 waker:              None,
-                pending_changes:    VecDeque::new()
+                pending_changes:    VecDeque::new(),
+                needs_pull:         false
             };
             core.stream_states.push(state);
 

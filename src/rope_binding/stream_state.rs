@@ -17,5 +17,8 @@ Attribute:  Clone+PartialEq+Default {
     pub (super) waker: Option<Waker>,
 
     /// The changes that are waiting to be sent to this stream
-    pub (super) pending_changes: VecDeque<RopeAction<Cell, Attribute>>
+    pub (super) pending_changes: VecDeque<RopeAction<Cell, Attribute>>,
+
+    /// True if the rope has indicated there are changes waiting to be pulled
+    pub (super) needs_pull: bool
 }

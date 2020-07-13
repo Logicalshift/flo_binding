@@ -53,7 +53,14 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         // Wake any streams that are waiting for changes to be pulled
         for stream in self.stream_states.iter_mut() {
             let waker = stream.waker.take();
-            waker.map(|waker| waker.wake());
+
+            if let Some(waker) = waker {
+                // Wake the stream so that it pulls the changes
+                waker.wake();
+            } else {
+                // If the stream is trying to sleep, make sure it wakes up immediately
+                stream.needs_pull = true;
+            }
         }
     }
 
@@ -61,6 +68,11 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// Pulls values from the rope and send to all attached streams
     ///
     pub (super) fn pull_rope(&mut self) {
+        // Stop the streams from waking up (no changes pending)
+        for stream in self.stream_states.iter_mut() {
+            stream.needs_pull = false;
+        }
+
         // Collect the actions
         let actions = self.rope.pull_changes().collect::<Vec<_>>();
 
@@ -90,7 +102,7 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             .filter(|state| state.identifier == stream_id)
             .nth(0)
             .map(move |state| {
-                if state.pending_changes.len() == 0 {
+                if !state.needs_pull {
                     // There are no pending values so we should wait for the rope to pull some extra data
 
                     // Wake the stream when there's some more data to receive
