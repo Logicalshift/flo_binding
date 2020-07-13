@@ -5,6 +5,9 @@ use flo_rope::*;
 use futures::executor;
 use futures::prelude::*;
 
+use std::thread;
+use std::time::{Duration};
+
 #[test]
 fn mutable_rope_sends_changes_to_stream() {
     // Create a rope that copies changes from a mutable rope
@@ -31,6 +34,9 @@ fn pull_from_mutable_binding() {
 
     // Write some data to the mutable rope
     mutable_rope.replace(0..0, vec![1, 2, 3, 4]);
+
+    // TODO: this should not be a race condition
+    thread::sleep(Duration::from_millis(100));
 
     // Read from the copy
     assert!(rope_copy.len() == 4);
