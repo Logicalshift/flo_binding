@@ -45,7 +45,7 @@ pub struct FollowStream<TValue: Send+Unpin, Binding: Bound<TValue>> {
     core: Arc<Desync<FollowCore<TValue, Binding>>>,
 
     /// Lifetime of the watcher
-    watcher: Box<dyn Releasable>,
+    _watcher: Box<dyn Releasable>,
 }
 
 impl<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>> Stream for FollowStream<TValue, Binding> {
@@ -106,7 +106,7 @@ pub fn follow<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>>(bindin
     // Create the stream
     FollowStream {
         core:       core,
-        watcher:    watcher
+        _watcher:   watcher
     }
 }
 
