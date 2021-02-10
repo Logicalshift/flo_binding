@@ -16,4 +16,4 @@ categories      = ["algorithms","asynchronous","data-structures","gui"]
 desync          = "0.7"
 futures         = "0.3"
 flo_rope        = "0.1"
-flo_stream      = "0.4"
+flo_stream      = "0.6"
