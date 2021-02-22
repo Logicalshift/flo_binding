@@ -106,8 +106,11 @@ mod computed;
 mod bindref;
 mod notify_fn;
 mod releasable;
+#[cfg(feature = "stream")]
 mod follow;
+#[cfg(feature = "stream")]
 mod bind_stream;
+#[cfg(feature = "stream")]
 mod rope_binding;
 
 pub use self::traits::*;
@@ -115,8 +118,11 @@ pub use self::binding::*;
 pub use self::computed::*;
 pub use self::bindref::*;
 pub use self::notify_fn::*;
+#[cfg(feature = "stream")]
 pub use self::follow::*;
+#[cfg(feature = "stream")]
 pub use self::bind_stream::*;
+#[cfg(feature = "stream")]
 pub use self::rope_binding::*;
 
 ///

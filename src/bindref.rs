@@ -1,6 +1,7 @@
 use super::traits::*;
 use super::binding::*;
 use super::computed::*;
+#[cfg(feature = "stream")]
 use super::bind_stream::*;
 
 use std::sync::*;
@@ -114,6 +115,7 @@ impl<'a, Value: 'static+Clone+PartialEq+Send+Into<Binding<Value>>> From<&'a Valu
     }
 }
 
+#[cfg(feature = "stream")]
 impl<Value: 'static+Clone+Send+PartialEq> From<StreamBinding<Value>> for BindRef<Value> {
     #[inline]
     fn from(val: StreamBinding<Value>) -> Self {
