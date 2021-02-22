@@ -140,6 +140,10 @@ where Value: Clone+Send, TFn: 'static+Send+Sync+Fn() -> Value {
     ComputedBinding::new(calculate_value)
 }
 
+pub fn signal() -> Signal {
+    Signal::new()
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -320,6 +324,31 @@ mod test {
         assert!(computed.get() == 3);
 
         bound.set(3);
+        assert!(computed.get() == 4);
+    }
+
+    #[test]
+    fn signal_recomputes_value() {
+        let value = Arc::new(Mutex::new(1));
+        let value_changed = signal();
+
+        let computed = {
+            let value = Arc::clone(&value);
+            let value_changed = Signal::clone(&value_changed);
+            computed(move || {
+                value_changed.observe();
+                *value.lock().unwrap() + 1
+            })
+        };
+
+        assert!(computed.get() == 2);
+
+        *value.lock().unwrap() = 2;
+        value_changed.emit();
+        assert!(computed.get() == 3);
+
+        *value.lock().unwrap() = 3;
+        value_changed.emit();
         assert!(computed.get() == 4);
     }
 
