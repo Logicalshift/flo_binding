@@ -12,8 +12,12 @@ readme          = "README.md"
 keywords        = ["reactive", "parametric", "binding", "event"]
 categories      = ["algorithms","asynchronous","data-structures","gui"]
 
+[features]
+default = ["stream"]
+stream = ["desync", "futures", "flo_rope", "flo_stream"]
+
 [dependencies]
-desync          = "0.7"
-futures         = "0.3"
-flo_rope        = "0.1"
-flo_stream      = "0.6"
+desync          = { version = "0.7", optional = true }
+futures         = { version = "0.3", optional = true }
+flo_rope        = { version = "0.1", optional = true }
+flo_stream      = { version = "0.6", optional = true }
