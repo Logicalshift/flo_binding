@@ -81,6 +81,23 @@ impl<Value: Clone+PartialEq> BoundValue<Value> {
     }
 }
 
+impl<Value: Default + Clone + PartialEq> Default for BoundValue<Value> {
+    fn default() -> Self {
+        BoundValue::new(Value::default())
+    }
+}
+
+impl<Value: std::fmt::Debug> std::fmt::Debug for BoundValue<Value> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
+impl<Value: PartialEq> PartialEq for BoundValue<Value> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value.eq(&other.value)
+    }
+}
 ///
 /// Represents a thread-safe, sharable binding
 ///
