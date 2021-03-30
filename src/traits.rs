@@ -56,6 +56,19 @@ pub trait Bound<Value> : Changeable+Send+Sync {
 }
 
 ///
+/// Trait implemented by something that is bound to a value
+///
+// Seperate Trait to allow Bound to be made into an object for BindRef
+pub trait BorrowableBound<Value>: Changeable+ Send + Sync {
+    ///
+    /// Mutate instead of replacing value stored in this binding, return true
+    /// to send notifiations
+    ///
+    fn with_ref<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&Value) -> T;
+}
+///
 /// Trait implemented by something that is bound to a value that can be changed
 /// 
 /// Bindings are similar in behaviour to Arc<Mutex<Value>>, so it's possible to set 
@@ -66,4 +79,11 @@ pub trait MutableBound<Value> : Bound<Value> {
     /// Sets the value stored by this binding
     ///
     fn set(&self, new_value: Value);
+    ///
+    /// Mutate instead of replacing value stored in this binding, return true
+    /// to send notifiations
+    ///
+    fn with_mut<F>(&self, f: F)
+    where
+        F: FnOnce(&mut Value) -> bool;
 }
