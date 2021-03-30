@@ -107,6 +107,24 @@ pub struct Binding<Value> {
     value: Arc<Mutex<BoundValue<Value>>>
 }
 
+impl<Value: Default + Clone + PartialEq> Default for Binding<Value> {
+    fn default() -> Self {
+        Binding::new(Value::default())
+    }
+}
+
+impl<Value: std::fmt::Debug> std::fmt::Debug for Binding<Value> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
+impl<Value: PartialEq> PartialEq for Binding<Value> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value.lock().unwrap().eq(&other.value.lock().unwrap())
+    }
+}
+
 impl<Value: Clone+PartialEq> Binding<Value> {
     pub fn new(value: Value) -> Binding<Value> {
         Binding {
