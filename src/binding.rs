@@ -173,7 +173,15 @@ impl<Value: 'static+Clone+PartialEq+Send> MutableBound<Value> for Binding<Value>
             cell.filter_unused_notifications();
         }
     }
+}
 
+impl<Value: 'static + Clone + PartialEq + Send> WithBound<Value> for Binding<Value> {
+    fn with_ref<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&Value) -> T,
+    {
+        f(&self.value.lock().unwrap().value)
+    }
     fn with_mut<F>(&self, f: F)
     where
         F: FnOnce(&mut Value) -> bool,
