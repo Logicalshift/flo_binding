@@ -62,6 +62,13 @@ impl<Value: Clone+PartialEq> BoundValue<Value> {
     }
 
     ///
+    /// Retrieves a mutable reference to the value of this item
+    ///
+    fn get_mut(&mut self) -> &mut Value {
+        &mut self.value
+    }
+
+    ///
     /// Adds something that will be notified when this item changes
     ///
     fn when_changed(&mut self, what: Arc<dyn Notifiable>) -> Box<dyn Releasable> {
@@ -74,6 +81,23 @@ impl<Value: Clone+PartialEq> BoundValue<Value> {
     }
 }
 
+impl<Value: Default + Clone + PartialEq> Default for BoundValue<Value> {
+    fn default() -> Self {
+        BoundValue::new(Value::default())
+    }
+}
+
+impl<Value: std::fmt::Debug> std::fmt::Debug for BoundValue<Value> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
+impl<Value: PartialEq> PartialEq for BoundValue<Value> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value.eq(&other.value)
+    }
+}
 ///
 /// Represents a thread-safe, sharable binding
 ///
@@ -81,6 +105,24 @@ impl<Value: Clone+PartialEq> BoundValue<Value> {
 pub struct Binding<Value> {
     /// The value stored in this binding
     value: Arc<Mutex<BoundValue<Value>>>
+}
+
+impl<Value: Default + Clone + PartialEq> Default for Binding<Value> {
+    fn default() -> Self {
+        Binding::new(Value::default())
+    }
+}
+
+impl<Value: std::fmt::Debug> std::fmt::Debug for Binding<Value> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
+impl<Value: PartialEq> PartialEq for Binding<Value> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value.lock().unwrap().eq(&other.value.lock().unwrap())
+    }
 }
 
 impl<Value: Clone+PartialEq> Binding<Value> {
@@ -131,6 +173,43 @@ impl<Value: 'static+Clone+PartialEq+Send> MutableBound<Value> for Binding<Value>
             cell.filter_unused_notifications();
         }
     }
+}
+
+impl<Value: 'static + Clone + PartialEq + Send> WithBound<Value> for Binding<Value> {
+    fn with_ref<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&Value) -> T,
+    {
+        f(&self.value.lock().unwrap().value)
+    }
+    fn with_mut<F>(&self, f: F)
+    where
+        F: FnOnce(&mut Value) -> bool,
+    {
+        let notifications = {
+            let mut v = self.value.lock().unwrap();
+            let changed = f(v.get_mut());
+
+            if changed {
+                v.get_notifiable_items()
+            } else {
+                vec![]
+            }
+        };
+
+        // Call the notifications outside of the lock
+        let mut needs_filtering = false;
+
+        for to_notify in notifications {
+            needs_filtering = !to_notify.mark_as_changed() || needs_filtering;
+        }
+
+        if needs_filtering {
+            let mut cell = self.value.lock().unwrap();
+            cell.filter_unused_notifications();
+        }
+    }
+
 }
 
 impl<Value: 'static+Clone+PartialEq+Send> From<Value> for Binding<Value> {
