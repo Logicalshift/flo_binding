@@ -2,6 +2,7 @@ use crate::traits::*;
 use crate::releasable::*;
 use crate::rope_binding::core::*;
 use crate::rope_binding::stream::*;
+use crate::rope_binding::bound_rope::*;
 use crate::rope_binding::stream_state::*;
 
 use flo_rope::*;
@@ -75,38 +76,6 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     }
 
     ///
-    /// Creates a stream that follows the changes to this rope
-    ///
-    pub fn follow_changes(&self) -> RopeStream<Cell, Attribute> {
-        // Fetch an ID for the next stream from the core and generate a state
-        let stream_id = self.core.sync(|core| {
-            // Assign an ID to the stream
-            let next_id = core.next_stream_id;
-            core.next_stream_id += 1;
-
-            // Create a state for this stream
-            let state = RopeStreamState {
-                identifier:         next_id,
-                waker:              None,
-                pending_changes:    VecDeque::new(),
-                needs_pull:         false
-            };
-            core.stream_states.push(state);
-
-            // Return the stream ID
-            next_id
-        });
-
-        // Create the stream
-        RopeStream {
-            identifier:     stream_id,
-            core:           self.core.clone(),
-            poll_future:    None,
-            draining:       VecDeque::new(),
-        }
-    }
-
-    ///
     /// Returns the number of cells in this rope
     ///
     pub fn len(&self) -> usize {
@@ -133,6 +102,43 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         });
 
         (attribute, range)
+    }
+}
+
+impl<Cell, Attribute> BoundRope<Cell, Attribute> for RopeBinding<Cell, Attribute>
+where 
+Cell:       'static+Send+Unpin+Clone+PartialEq,
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    ///
+    /// Creates a stream that follows the changes to this rope
+    ///
+    fn follow_changes(&self) -> RopeStream<Cell, Attribute> {
+        // Fetch an ID for the next stream from the core and generate a state
+        let stream_id = self.core.sync(|core| {
+            // Assign an ID to the stream
+            let next_id = core.next_stream_id;
+            core.next_stream_id += 1;
+
+            // Create a state for this stream
+            let state = RopeStreamState {
+                identifier:         next_id,
+                waker:              None,
+                pending_changes:    VecDeque::new(),
+                needs_pull:         false
+            };
+            core.stream_states.push(state);
+
+            // Return the stream ID
+            next_id
+        });
+
+        // Create the stream
+        RopeStream {
+            identifier:     stream_id,
+            core:           self.core.clone(),
+            poll_future:    None,
+            draining:       VecDeque::new(),
+        }
     }
 }
 
