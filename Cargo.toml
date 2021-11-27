@@ -19,4 +19,4 @@ stream          = ["desync", "futures", "flo_rope" ]
 [dependencies]
 desync          = { version = "0.7", optional = true }
 futures         = { version = "0.3", optional = true }
-flo_rope        = { version = "0.1", optional = true }
+flo_rope        = { version = "0.2", optional = true }
