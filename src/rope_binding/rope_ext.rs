@@ -21,6 +21,12 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// Returns a new rope that concatenates the contents of this rope and another one
     ///
     fn chain<OtherRope: BoundRope<Cell, Attribute>>(&self, other: &OtherRope) -> RopeBinding<Cell, Attribute>;
+
+    ///
+    /// Returns a new rope that maps the values of the cells to new values
+    ///
+    fn map<NewCell, MapFn: 'static+Send+Fn(Cell) -> NewCell>(&self, map_fn: MapFn) -> RopeBinding<NewCell, Attribute>
+    where NewCell: 'static+Send+Unpin+Clone+PartialEq;
 }
 
 impl<Cell, Attribute, TRope> BoundRopeExt<Cell, Attribute> for TRope
@@ -86,5 +92,26 @@ TRope:      BoundRope<Cell, Attribute> {
 
         // Result is a rope reading from this stream
         RopeBinding::from_stream(concat_stream)
+    }
+
+    fn map<NewCell, MapFn: 'static+Send+Fn(Cell) -> NewCell>(&self, map_fn: MapFn) -> RopeBinding<NewCell, Attribute>
+    where NewCell: 'static+Send+Unpin+Clone+PartialEq {
+        // Follow the changes to this stream
+        let mut changes     = self.follow_changes();
+
+        // Process them via the map function
+        let mapped_stream   = stream::poll_fn(move |ctxt| {
+            use RopeAction::*;
+
+            match changes.poll_next_unpin(ctxt) {
+                Poll::Ready(None)                                               => Poll::Ready(None),
+                Poll::Pending                                                   => Poll::Pending,
+                Poll::Ready(Some(Replace(range, cells)))                        => Poll::Ready(Some(Replace(range, cells.into_iter().map(&map_fn).collect()))),
+                Poll::Ready(Some(SetAttributes(range, attributes)))             => Poll::Ready(Some(SetAttributes(range, attributes))),
+                Poll::Ready(Some(ReplaceAttributes(range, cells, attributes)))  => Poll::Ready(Some(ReplaceAttributes(range, cells.into_iter().map(&map_fn).collect(), attributes)))
+            }
+        });
+
+        RopeBinding::from_stream(mapped_stream)
     }
 } 
