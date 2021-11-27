@@ -20,7 +20,7 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     ///
     /// Returns a new rope that concatenates the contents of this rope and another one
     ///
-    fn concat<OtherRope: BoundRope<Cell, Attribute>>(&self, other: &OtherRope) -> RopeBinding<Cell, Attribute>;
+    fn chain<OtherRope: BoundRope<Cell, Attribute>>(&self, other: &OtherRope) -> RopeBinding<Cell, Attribute>;
 }
 
 impl<Cell, Attribute, TRope> BoundRopeExt<Cell, Attribute> for TRope
@@ -28,7 +28,7 @@ where
 Cell:       'static+Send+Unpin+Clone+PartialEq,
 Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default,
 TRope:      BoundRope<Cell, Attribute> {
-    fn concat<OtherRope: BoundRope<Cell, Attribute>>(&self, other: &OtherRope) -> RopeBinding<Cell, Attribute> {
+    fn chain<OtherRope: BoundRope<Cell, Attribute>>(&self, other: &OtherRope) -> RopeBinding<Cell, Attribute> {
         // Follow the left and right-hand streams
         let mut follow_left     = Some(self.follow_changes());
         let mut follow_right    = Some(other.follow_changes());

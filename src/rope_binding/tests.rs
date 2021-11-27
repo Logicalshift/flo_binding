@@ -48,7 +48,7 @@ fn concatenate_ropes() {
     // Create a LHS and RHS rope and a concatenation of both
     let mut lhs             = RopeBindingMut::<usize, ()>::new();
     let mut rhs             = RopeBindingMut::<usize, ()>::new();
-    let concat              = lhs.concat(&rhs);
+    let concat              = lhs.chain(&rhs);
 
     // We need to wait for the changes to arrive on the concatenated rope to avoid racing when reading back
     let mut follow_concat   = concat.follow_changes();
