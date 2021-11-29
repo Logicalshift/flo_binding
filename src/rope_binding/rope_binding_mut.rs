@@ -95,7 +95,7 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// 
     /// Performs the specified editing action to this rope
     ///
-    pub fn edit(&mut self, action: RopeAction<Cell, Attribute>) {
+    pub fn edit(&self, action: RopeAction<Cell, Attribute>) {
         self.core.sync(move |core| core.rope.edit(action));
     }
 
@@ -103,21 +103,21 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// Replaces a range of cells. The attributes applied to the new cells will be the same
     /// as the attributes that were applied to the first cell in the replacement range
     ///
-    pub fn replace<NewCells: 'static+Send+IntoIterator<Item=Cell>>(&mut self, range: Range<usize>, new_cells: NewCells) {
+    pub fn replace<NewCells: 'static+Send+IntoIterator<Item=Cell>>(&self, range: Range<usize>, new_cells: NewCells) {
         self.core.sync(move |core| core.rope.replace(range, new_cells));
     }
 
     ///
     /// Sets the attributes for a range of cells
     ///
-    pub fn set_attributes(&mut self, range: Range<usize>, new_attributes: Attribute) {
+    pub fn set_attributes(&self, range: Range<usize>, new_attributes: Attribute) {
         self.core.sync(move |core| core.rope.set_attributes(range, new_attributes));
     }
 
     ///
     /// Replaces a range of cells and sets the attributes for them.
     ///
-    pub fn replace_attributes<NewCells: 'static+Send+IntoIterator<Item=Cell>>(&mut self, range: Range<usize>, new_cells: NewCells, new_attributes: Attribute) {
+    pub fn replace_attributes<NewCells: 'static+Send+IntoIterator<Item=Cell>>(&self, range: Range<usize>, new_cells: NewCells, new_attributes: Attribute) {
         self.core.sync(move |core| core.rope.replace_attributes(range, new_cells, new_attributes));
     }
 }

@@ -8,7 +8,7 @@ use futures::prelude::*;
 #[test]
 fn mutable_rope_sends_changes_to_stream() {
     // Create a rope that copies changes from a mutable rope
-    let mut mutable_rope    = RopeBindingMut::<usize, ()>::new();
+    let mutable_rope        = RopeBindingMut::<usize, ()>::new();
     let mut rope_stream     = mutable_rope.follow_changes();
 
     // Write some data to the mutable rope
@@ -25,7 +25,7 @@ fn mutable_rope_sends_changes_to_stream() {
 #[test]
 fn pull_from_mutable_binding() {
     // Create a rope that copies changes from a mutable rope
-    let mut mutable_rope    = RopeBindingMut::<usize, ()>::new();
+    let mutable_rope        = RopeBindingMut::<usize, ()>::new();
     let rope_copy           = RopeBinding::from_stream(mutable_rope.follow_changes());
     let mut rope_stream     = rope_copy.follow_changes();
 
