@@ -46,8 +46,8 @@ fn pull_from_mutable_binding() {
 #[test]
 fn concatenate_ropes() {
     // Create a LHS and RHS rope and a concatenation of both
-    let mut lhs             = RopeBindingMut::<usize, ()>::new();
-    let mut rhs             = RopeBindingMut::<usize, ()>::new();
+    let lhs                 = RopeBindingMut::<usize, ()>::new();
+    let rhs                 = RopeBindingMut::<usize, ()>::new();
     let chain               = lhs.chain(&rhs);
 
     // We need to wait for the changes to arrive on the concatenated rope to avoid racing when reading back
@@ -81,7 +81,7 @@ fn concatenate_ropes() {
 #[test]
 fn map_ropes() {
     // Create a rope with some numbers in it
-    let mut rope        = RopeBindingMut::<usize, ()>::new();
+    let rope            = RopeBindingMut::<usize, ()>::new();
     rope.replace(0..0, vec![1, 2, 3]);
 
     // Create a mapped rope that adds one to the numbers
