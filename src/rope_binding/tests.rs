@@ -97,3 +97,35 @@ fn map_ropes() {
     executor::block_on(async { follow_add.next().await });
     assert!(add_one.read_cells(0..6).collect::<Vec<_>>() == vec![2, 9, 10, 11, 3, 4]);
 }
+
+#[test]
+fn computed_rope() {
+    // Create a length binding and compute a rope from it
+    let length          = bind(0);
+    let length_copy     = length.clone();
+    let rope            = RopeBinding::<_, ()>::computed(move || (0..length_copy.get()).into_iter().map(|idx| idx));
+
+    // Follow a the rope changes so we can sync up with the changes
+    let mut follow_rope = rope.follow_changes();
+
+    // Increase length to 1
+    length.set(1);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 1);
+    assert!(rope.read_cells(0..1).collect::<Vec<_>>() == vec![0]);
+
+    length.set(3);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 3);
+    assert!(rope.read_cells(0..3).collect::<Vec<_>>() == vec![0, 1, 2]);
+
+    length.set(2);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 2);
+    assert!(rope.read_cells(0..2).collect::<Vec<_>>() == vec![0, 1]);
+
+    length.set(10);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 10);
+    assert!(rope.read_cells(0..10).collect::<Vec<_>>() == vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+}
