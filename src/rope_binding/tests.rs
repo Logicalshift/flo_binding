@@ -129,3 +129,63 @@ fn computed_rope() {
     assert!(rope.len() == 10);
     assert!(rope.read_cells(0..10).collect::<Vec<_>>() == vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 }
+
+#[test]
+fn computed_rope_using_diffs_1() {
+    // Create a length binding and compute a rope from it
+    let length          = bind(0);
+    let length_copy     = length.clone();
+    let rope            = RopeBinding::<_, ()>::computed_difference(move || (0..length_copy.get()).into_iter().map(|idx| idx));
+
+    // Follow a the rope changes so we can sync up with the changes
+    let mut follow_rope = rope.follow_changes();
+
+    // Increase length to 1
+    length.set(1);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 1);
+    assert!(rope.read_cells(0..1).collect::<Vec<_>>() == vec![0]);
+
+    length.set(3);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 3);
+    assert!(rope.read_cells(0..3).collect::<Vec<_>>() == vec![0, 1, 2]);
+
+    length.set(2);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 2);
+    assert!(rope.read_cells(0..2).collect::<Vec<_>>() == vec![0, 1]);
+
+    length.set(10);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 10);
+    assert!(rope.read_cells(0..10).collect::<Vec<_>>() == vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+}
+
+#[test]
+fn computed_rope_using_diffs_2() {
+    // Create a length binding and compute a rope from it
+    let length          = bind(0);
+    let length_copy     = length.clone();
+    let rope            = RopeBinding::<_, ()>::computed_difference(move || (0..length_copy.get()).into_iter().map(|idx| idx));
+
+    // Follow a the rope changes so we can sync up with the changes
+    let mut follow_rope = rope.follow_changes();
+
+    // Increase length to 1
+    length.set(1);
+    let diff = executor::block_on(async { follow_rope.next().await });
+    assert!(diff == Some(RopeAction::Replace(0..0, vec![0])));
+
+    length.set(3);
+    let diff = executor::block_on(async { follow_rope.next().await });
+    assert!(diff == Some(RopeAction::Replace(1..1, vec![1, 2])));
+
+    length.set(2);
+    let diff = executor::block_on(async { follow_rope.next().await });
+    assert!(diff == Some(RopeAction::Replace(2..3, vec![])));
+
+    length.set(10);
+    let diff = executor::block_on(async { follow_rope.next().await });
+    assert!(diff == Some(RopeAction::Replace(2..2, vec![2, 3, 4, 5, 6, 7, 8, 9])));
+}

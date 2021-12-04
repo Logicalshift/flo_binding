@@ -14,9 +14,13 @@ use futures::prelude::*;
 use futures::stream;
 use futures::task::{Poll};
 
+#[cfg(feature = "diff")]
+use similar::*;
+
 use std::mem;
 use std::sync::*;
 use std::ops::{Range};
+use std::hash::{Hash};
 use std::collections::{VecDeque};
 
 ///
@@ -131,7 +135,7 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
                     // Keep the releasable alongside this stream
                     (*dependency_monitor.lock().unwrap()) = new_dependency_monitor;
 
-                    // Return the new value
+                    // The action is to replace all of the cells with the new values
                     let new_cells   = value_iter.into_iter().collect::<Vec<_>>();
                     let old_length  = length;
                     length          = new_cells.len();
@@ -173,6 +177,91 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         });
 
         (attribute, range)
+    }
+}
+
+impl<Cell, Attribute> RopeBinding<Cell, Attribute>
+where 
+Cell:       'static+Send+Unpin+Clone+PartialEq+Hash+Ord+Eq,
+Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    ///
+    /// Similar to computed, but instead of always replacing the entire rope, replaces only the sections that are different between the
+    /// two values.
+    ///
+    /// This currently stores up to three copies of the list of cells (generally only two, but up to three while computing diffs). This
+    /// is not efficient for sending edits, but useful when they're not easily known. Use `RopeBindingMut` to send edits as they arrive
+    /// instead.
+    ///
+    /// In spite of this, this is still useful when updating something like a user interface where only the changes should be sent to
+    /// the user, or for generating edit lists when the data source is not already formatted in a suitable form.
+    ///
+    #[cfg(feature = "diff")]
+    pub fn computed_difference<TFn: 'static+Send+Fn() -> TValueIter, TValueIter: IntoIterator<Item=Cell>>(calculate_value: TFn) -> Self {
+        // Create a stream of changes by following the function
+        let new_value           = Arc::new(Mutex::new(true));
+        let mut last_cells      = vec![];
+        let waker               = Arc::new(Mutex::new(None));
+        let dependency_monitor  = Arc::new(Mutex::new(None));
+
+        let stream              = stream::poll_fn(move |ctxt| {
+            // Store the waker so we can poll the stream again when it changes
+            (*waker.lock().unwrap()) = Some(ctxt.waker().clone());
+
+            // Replace the contents of the rope whenever there is a new value
+            if mem::take(&mut (*new_value.lock().unwrap())) {
+                // Loop until the value is stable
+                loop {
+                    // Release the monitor (this holds on to the bindings from the previous calculation)
+                    (*dependency_monitor.lock().unwrap()) = None;
+
+                    // Compute the new value and the dependencies
+                    let (value_iter, dependencies)  = BindingContext::bind(|| calculate_value());
+
+                    // When the dependencies change, mark that we've changed and wake up the stream
+                    let new_value                   = Arc::clone(&new_value);
+                    let waker                       = Arc::clone(&waker);
+                    let new_dependency_monitor      = dependencies.when_changed_if_unchanged(notify(move || {
+                        // Mark as changed
+                        (*new_value.lock().unwrap()) = true;
+
+                        // Wake the stream
+                        let waker           = mem::take(&mut *waker.lock().unwrap());
+                        if let Some(waker)  = waker { waker.wake() }
+                    }));
+
+                    // Recalculate the value if it has already changed
+                    if new_dependency_monitor.is_none() { continue; }
+
+                    // Keep the releasable alongside this stream
+                    (*dependency_monitor.lock().unwrap()) = new_dependency_monitor;
+
+                    // Figure out the differences between the old and the new values
+                    let new_cells       = value_iter.into_iter().collect::<Vec<_>>();
+                    let mut differences = capture_diff_slices(Algorithm::Myers, &last_cells, &new_cells);
+                    differences.sort_by(|a, b| a.new_range().start.cmp(&b.new_range().start));
+
+                    let mut actions     = vec![];
+                    for diff in differences {
+                        use self::DiffOp::*;
+                        match diff {
+                            Equal { old_index: _, new_index: _, len: _ }            => { /* No difference */ },
+                            Delete { old_index: _, old_len, new_index }             => { actions.push(RopeAction::Replace(new_index..(new_index+old_len), vec![])) },
+                            Insert { old_index: _, new_index, new_len }             => { actions.push(RopeAction::Replace(new_index..new_index, new_cells[new_index..(new_index+new_len)].iter().cloned().collect())) },
+                            Replace { old_index: _, old_len, new_index, new_len }   => { actions.push(RopeAction::Replace(new_index..(new_index+old_len), new_cells[new_index..(new_index+new_len)].iter().cloned().collect())) }
+                        }
+                    }
+
+                    last_cells          = new_cells;
+
+                    // Return the editing actions created by the difference operation
+                    return Poll::Ready(Some(stream::iter(actions)));
+                }
+            } else {
+                Poll::Pending
+            }
+        });
+
+        Self::from_stream(stream.flatten())
     }
 }
 
