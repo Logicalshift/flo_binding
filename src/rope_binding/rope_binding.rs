@@ -1,5 +1,7 @@
 use crate::traits::*;
+use crate::notify_fn::*;
 use crate::releasable::*;
+use crate::binding_context::*;
 use crate::rope_binding::core::*;
 use crate::rope_binding::stream::*;
 use crate::rope_binding::bound_rope::*;
@@ -9,7 +11,10 @@ use crate::rope_binding::rope_binding_mut::*;
 use flo_rope::*;
 use ::desync::*;
 use futures::prelude::*;
+use futures::stream;
+use futures::task::{Poll};
 
+use std::mem;
 use std::sync::*;
 use std::ops::{Range};
 use std::collections::{VecDeque};
@@ -46,7 +51,7 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     ///
     /// Creates a new rope binding from a stream of changes
     ///
-    pub fn from_stream<S: 'static+Stream<Item=RopeAction<Cell, Attribute>>+Unpin+Send>(stream: S) -> RopeBinding<Cell, Attribute> {
+    pub fn from_stream<S: 'static+Stream<Item=RopeAction<Cell, Attribute>>+Unpin+Send>(stream: S) -> Self {
         // Create the core
         let core        = RopeBindingCore {
             usage_count:    1,
@@ -81,6 +86,64 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         RopeBinding {
             core
         }
+    }
+
+    ///
+    /// Creates a rope binding that entirely replaces its set of cells by following a computed value (the attributes will always
+    /// have their default values when using this method)
+    ///
+    pub fn computed<TFn: 'static+Send+Fn() -> TValueIter, TValueIter: IntoIterator<Item=Cell>>(calculate_value: TFn) -> Self {
+        // Create a stream of changes by following the function
+        let mut length          = 0;
+        let new_value           = Arc::new(Mutex::new(true));
+        let waker               = Arc::new(Mutex::new(None));
+        let dependency_monitor  = Arc::new(Mutex::new(None));
+
+        let stream              = stream::poll_fn(move |ctxt| {
+            // Store the waker so we can poll the stream again when it changes
+            (*waker.lock().unwrap()) = Some(ctxt.waker().clone());
+
+            // Replace the contents of the rope whenever there is a new value
+            if mem::take(&mut (*new_value.lock().unwrap())) {
+                // Loop until the value is stable
+                loop {
+                    // Release the monitor (this holds on to the bindings from the previous calculation)
+                    (*dependency_monitor.lock().unwrap()) = None;
+
+                    // Compute the new value and the dependencies
+                    let (value_iter, dependencies)  = BindingContext::bind(|| calculate_value());
+
+                    // When the dependencies change, mark that we've changed and wake up the stream
+                    let new_value                   = Arc::clone(&new_value);
+                    let waker                       = Arc::clone(&waker);
+                    let new_dependency_monitor      = dependencies.when_changed_if_unchanged(notify(move || {
+                        // Mark as changed
+                        (*new_value.lock().unwrap()) = true;
+
+                        // Wake the stream
+                        let waker           = mem::take(&mut *waker.lock().unwrap());
+                        if let Some(waker)  = waker { waker.wake() }
+                    }));
+
+                    // Recalculate the value if it has already changed
+                    if new_dependency_monitor.is_none() { continue; }
+
+                    // Keep the releasable alongside this stream
+                    (*dependency_monitor.lock().unwrap()) = new_dependency_monitor;
+
+                    // Return the new value
+                    let new_cells   = value_iter.into_iter().collect::<Vec<_>>();
+                    let old_length  = length;
+                    length          = new_cells.len();
+
+                    return Poll::Ready(Some(RopeAction::Replace(0..old_length, new_cells)));
+                }
+            } else {
+                Poll::Pending
+            }
+        });
+
+        Self::from_stream(stream)
     }
 
     ///
