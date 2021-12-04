@@ -273,7 +273,6 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     }
 }
 
-
 ///
 /// Trait implemented by something that is bound to a value
 ///
