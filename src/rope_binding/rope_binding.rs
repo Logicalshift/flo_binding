@@ -4,6 +4,7 @@ use crate::rope_binding::core::*;
 use crate::rope_binding::stream::*;
 use crate::rope_binding::bound_rope::*;
 use crate::rope_binding::stream_state::*;
+use crate::rope_binding::rope_binding_mut::*;
 
 use flo_rope::*;
 use ::desync::*;
@@ -35,6 +36,13 @@ impl<Cell, Attribute> RopeBinding<Cell, Attribute>
 where 
 Cell:       'static+Send+Unpin+Clone+PartialEq,
 Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    ///
+    /// Generates a rope binding by tracking a mutable binding
+    ///
+    pub fn from_mutable(binding: &RopeBindingMut<Cell, Attribute>) -> Self {
+        Self::from_stream(binding.follow_changes())
+    }
+
     ///
     /// Creates a new rope binding from a stream of changes
     ///
