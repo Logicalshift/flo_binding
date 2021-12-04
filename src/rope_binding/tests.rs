@@ -108,7 +108,7 @@ fn computed_rope() {
     // Follow a the rope changes so we can sync up with the changes
     let mut follow_rope = rope.follow_changes();
 
-    // Increase length to 1
+    // Mess with the length
     length.set(1);
     executor::block_on(async { follow_rope.next().await });
     assert!(rope.len() == 1);
@@ -140,7 +140,7 @@ fn computed_rope_using_diffs_1() {
     // Follow a the rope changes so we can sync up with the changes
     let mut follow_rope = rope.follow_changes();
 
-    // Increase length to 1
+    // Mess with the length
     length.set(1);
     executor::block_on(async { follow_rope.next().await });
     assert!(rope.len() == 1);
@@ -172,7 +172,7 @@ fn computed_rope_using_diffs_2() {
     // Follow a the rope changes so we can sync up with the changes
     let mut follow_rope = rope.follow_changes();
 
-    // Increase length to 1
+    // Mess with the length
     length.set(1);
     let diff = executor::block_on(async { follow_rope.next().await });
     assert!(diff == Some(RopeAction::Replace(0..0, vec![0])));
@@ -188,4 +188,46 @@ fn computed_rope_using_diffs_2() {
     length.set(10);
     let diff = executor::block_on(async { follow_rope.next().await });
     assert!(diff == Some(RopeAction::Replace(2..2, vec![2, 3, 4, 5, 6, 7, 8, 9])));
+}
+
+#[test]
+fn computed_rope_using_diffs_3() {
+    // Bind a list of items
+    let items           = bind(vec![]);
+    let items_copy      = items.clone();
+    let rope            = RopeBinding::<_, ()>::computed_difference(move || items_copy.get());
+
+    // Follow a the rope changes so we can sync up with the changes
+    let mut follow_rope = rope.follow_changes();
+
+    // Update the items (as we're using diffs these will test various ways of sending them across)
+    let val = vec![1, 1, 1, 1];
+    items.set(val.clone());
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == val.len());
+    assert!(rope.read_cells(0..val.len()).collect::<Vec<_>>() == val);
+
+    let val = vec![1, 1, 2, 2, 1, 1, 3, 3];
+    items.set(val.clone());
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == val.len());
+    assert!(rope.read_cells(0..val.len()).collect::<Vec<_>>() == val);
+
+    let val = vec![1, 1, 1, 1];
+    items.set(val.clone());
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == val.len());
+    assert!(rope.read_cells(0..val.len()).collect::<Vec<_>>() == val);
+
+    let val = vec![1, 2, 1, 3, 3, 1, 4, 4, 4, 1, 5, 5, 5, 5];
+    items.set(val.clone());
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == val.len());
+    assert!(rope.read_cells(0..val.len()).collect::<Vec<_>>() == val);
+
+    let val = vec![1, 1, 1, 1];
+    items.set(val.clone());
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == val.len());
+    assert!(rope.read_cells(0..val.len()).collect::<Vec<_>>() == val);
 }
