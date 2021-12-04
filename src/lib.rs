@@ -110,7 +110,7 @@ mod releasable;
 mod follow;
 #[cfg(feature = "stream")]
 mod bind_stream;
-#[cfg(feature = "stream")]
+#[cfg(feature = "rope")]
 mod rope_binding;
 
 pub use self::traits::*;
@@ -122,7 +122,7 @@ pub use self::notify_fn::*;
 pub use self::follow::*;
 #[cfg(feature = "stream")]
 pub use self::bind_stream::*;
-#[cfg(feature = "stream")]
+#[cfg(feature = "rope")]
 pub use self::rope_binding::*;
 
 ///
