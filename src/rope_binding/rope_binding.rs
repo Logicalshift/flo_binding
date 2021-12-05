@@ -154,6 +154,8 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// Returns the number of cells in this rope
     ///
     pub fn len(&self) -> usize {
+        BindingContext::add_dependency(self.clone());
+
         self.core.sync(|core| core.rope.len())
     }
 
@@ -161,6 +163,8 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// Reads the cell values for a range in this rope
     ///
     pub fn read_cells<'a>(&'a self, range: Range<usize>) -> impl 'a+Iterator<Item=Cell> {
+        BindingContext::add_dependency(self.clone());
+
         // Read this range of cells by cloning from the core
         let cells = self.core.sync(|core| core.rope.read_cells(range).cloned().collect::<Vec<_>>());
 
@@ -171,6 +175,8 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// Returns the attributes set at the specified location and their extent
     ///
     pub fn read_attributes<'a>(&'a self, pos: usize) -> (Attribute, Range<usize>) {
+        BindingContext::add_dependency(self.clone());
+
         let (attribute, range) = self.core.sync(|core| {
             let (attribute, range) = core.rope.read_attributes(pos);
             (attribute.clone(), range)
