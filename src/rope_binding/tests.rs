@@ -5,6 +5,8 @@ use flo_rope::*;
 use futures::executor;
 use futures::prelude::*;
 
+use std::sync::*;
+
 #[test]
 fn mutable_rope_sends_changes_to_stream() {
     // Create a rope that copies changes from a mutable rope
@@ -230,4 +232,62 @@ fn computed_rope_using_diffs_3() {
     executor::block_on(async { follow_rope.next().await });
     assert!(rope.len() == val.len());
     assert!(rope.read_cells(0..val.len()).collect::<Vec<_>>() == val);
+}
+
+#[test]
+fn bind_rope_length_to_computed() {
+    // Create a rope
+    let items           = bind(vec![]);
+    let items_copy      = items.clone();
+    let rope            = RopeBinding::<_, ()>::computed_difference(move || items_copy.get());
+
+    // Computed binding containing the rope length
+    let rope_copy       = rope.clone();
+    let rope_length     = computed(move || rope_copy.len());
+
+    // Follow the rope so we know when it's updated
+    let mut follow_rope = rope.follow_changes();
+
+    // Initial length is 0
+    assert!(rope_length.get() == 0);
+
+    let is_changed      = Arc::new(Mutex::new(false));
+    let is_changed_copy = is_changed.clone();
+    rope_length.when_changed(notify(move || *is_changed_copy.lock().unwrap() = true)).keep_alive();
+
+    // Rope length should update to 4
+    let val = vec![1, 1, 1, 1];
+    items.set(val.clone());
+    executor::block_on(async { follow_rope.next().await });
+
+    assert!(rope_length.get() == 4);
+    assert!(*is_changed.lock().unwrap() == true);
+}
+
+#[test]
+fn bind_rope_mut_length_to_computed() {
+    // Create a rope
+    let rope            = RopeBindingMut::<_, ()>::new();
+
+    // Computed binding containing the rope length
+    let rope_copy       = rope.clone();
+    let rope_length     = computed(move || rope_copy.len());
+
+    // Follow the rope so we know when it's updated
+    let mut follow_rope = rope.follow_changes();
+
+    // Initial length is 0
+    assert!(rope_length.get() == 0);
+
+    let is_changed      = Arc::new(Mutex::new(false));
+    let is_changed_copy = is_changed.clone();
+    rope_length.when_changed(notify(move || *is_changed_copy.lock().unwrap() = true)).keep_alive();
+
+    // Rope length should update to 4
+    let val = vec![1, 1, 1, 1];
+    rope.replace(0..0, val);
+    executor::block_on(async { follow_rope.next().await });
+
+    assert!(rope_length.get() == 4);
+    assert!(*is_changed.lock().unwrap() == true);
 }
