@@ -260,6 +260,9 @@ fn bind_rope_length_to_computed() {
     items.set(val.clone());
     executor::block_on(async { follow_rope.next().await });
 
+    // Reading the rope length forces synchronisation with the binding (otherwise there's a race condition here)
+    assert!(rope.len() == 4);
+
     assert!(rope_length.get() == 4);
     assert!(*is_changed.lock().unwrap() == true);
 }
@@ -287,6 +290,8 @@ fn bind_rope_mut_length_to_computed() {
     let val = vec![1, 1, 1, 1];
     rope.replace(0..0, val);
     executor::block_on(async { follow_rope.next().await });
+
+    rope.len();
 
     assert!(rope_length.get() == 4);
     assert!(*is_changed.lock().unwrap() == true);
@@ -318,6 +323,8 @@ fn bind_rope_read_cells_to_computed() {
     items.set(val.clone());
     executor::block_on(async { follow_rope.next().await });
 
+    rope.len();
+
     assert!(rope_cells.get() == vec![1,1]);
     assert!(*is_changed.lock().unwrap() == true);
 }
@@ -345,6 +352,8 @@ fn bind_rope_mut_read_cells_to_computed() {
     let val = vec![1, 1, 1, 1];
     rope.replace(0..0, val);
     executor::block_on(async { follow_rope.next().await });
+
+    rope.len();
 
     assert!(rope_cells.get() == vec![1,1]);
     assert!(*is_changed.lock().unwrap() == true);
