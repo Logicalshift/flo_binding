@@ -165,6 +165,17 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             retains_core:   false,
         }
     }
+
+    ///
+    /// Creates a stream that follows the changes to this rope
+    ///
+    /// The stream will continue even if the rope binding is dropped (this is possible for RopeBinding as RopeBinding itself might be following a
+    /// stream)
+    ///
+    fn follow_changes_retained(&self) -> RopeStream<Cell, Attribute> {
+        // Mutable ropes can't continue to receive changes after they've been dropped so this still stops the stream once all copies of this rope are gone
+        self.follow_changes()
+    }
 }
 
 impl<Cell, Attribute> Clone for RopeBindingMut<Cell, Attribute>

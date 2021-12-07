@@ -14,4 +14,7 @@ Cell:       'static+Send+Unpin+Clone+PartialEq,
 Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// Follows the changes to the bound rope as a stream
     fn follow_changes(&self) -> RopeStream<Cell, Attribute>;
+
+    /// Follows the changes to the bound rope as a stream. The stream does not end if the original rope binding is dropped.
+    fn follow_changes_retained(&self) -> RopeStream<Cell, Attribute>;
 }
