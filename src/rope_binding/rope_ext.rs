@@ -36,8 +36,8 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default,
 TRope:      BoundRope<Cell, Attribute> {
     fn chain<OtherRope: BoundRope<Cell, Attribute>>(&self, other: &OtherRope) -> RopeBinding<Cell, Attribute> {
         // Follow the left and right-hand streams
-        let mut follow_left     = Some(self.follow_changes());
-        let mut follow_right    = Some(other.follow_changes());
+        let mut follow_left     = Some(self.follow_changes_retained());
+        let mut follow_right    = Some(other.follow_changes_retained());
 
         // Concatenator and pending values
         let mut pending         = VecDeque::new();
