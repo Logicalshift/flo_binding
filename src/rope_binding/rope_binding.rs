@@ -290,7 +290,7 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
                 identifier:         next_id,
                 waker:              None,
                 pending_changes:    VecDeque::new(),
-                needs_pull:         false
+                needs_pull:         false,
             };
             core.stream_states.push(state);
 
@@ -304,6 +304,7 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             core:           self.core.clone(),
             poll_future:    None,
             draining:       VecDeque::new(),
+            retains_core:   false,
         }
     }
 }

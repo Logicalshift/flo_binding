@@ -31,6 +31,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
     /// The actions that are currently being drained through this stream
     pub (super) draining: VecDeque<RopeAction<Cell, Attribute>>,
+
+    /// Set to true if this should reduce the usage count on the core when it's dropped
+    pub (super) retains_core: bool
 }
 
 impl<Cell, Attribute> Stream for RopeStream<Cell, Attribute>
@@ -141,9 +144,20 @@ Cell:       'static+Send+Unpin+Clone+PartialEq,
 Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     fn drop(&mut self) {
         // Remove the stream state when the stream is no more
-        let dropped_stream_id = self.identifier;
+        let dropped_stream_id   = self.identifier;
+        let retains_core        = self.retains_core;
         self.core.desync(move |core| {
             core.stream_states.retain(|state| state.identifier != dropped_stream_id);
+
+            if retains_core {
+                // Core is no longer in use
+                core.usage_count -= 1;
+
+                // Counts as a notification if this is the last binding using this core
+                if core.usage_count == 0 {
+                    core.pull_rope();
+                }
+            }
         });
     }
 }
