@@ -417,6 +417,8 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// Retrieves the value stored by this binding
     ///
     fn get(&self) -> AttributedRope<Cell, Attribute> {
+        BindingContext::add_dependency(self.clone());
+
         self.core.sync(|core| {
             // Create a new rope from the existing one
             let mut rope_copy   = AttributedRope::new();
