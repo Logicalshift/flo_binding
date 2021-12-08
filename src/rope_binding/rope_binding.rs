@@ -83,6 +83,7 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         pipe_in(Arc::clone(&core), stream, |core, actions| {
             async move {
                 core.rope.edit(actions);
+                core.wake();
             }.boxed()
         });
 
