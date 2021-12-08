@@ -94,6 +94,14 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             .boxed()
         };
 
+        // Wake when the rope generates a 'pull' event
+        let waker       = ctxt.waker().clone();
+        let stream_id   = self.identifier;
+
+        self.core.desync(move |core| {
+            core.wake_stream(stream_id, waker);
+        });
+
         // Ask the future for the latest update on this stream
         let future_result = poll_future.poll_unpin(ctxt);
 
@@ -101,13 +109,6 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             Poll::Ready(Poll::Ready(Some(actions))) => {
                 if actions.len() == 0 {
                     // Nothing waiting: need to wait until the rope signals a 'pull' event
-                    let waker       = ctxt.waker().clone();
-                    let stream_id   = self.identifier;
-
-                    self.core.desync(move |core| {
-                        core.wake_stream(stream_id, waker);
-                    });
-
                     Poll::Pending
                 } else {
                     // Have some actions ready
@@ -117,17 +118,7 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
             }
 
             Poll::Ready(Poll::Ready(None))  => Poll::Ready(None),
-            Poll::Ready(Poll::Pending)      => {
-                // Wake when the rope generates a 'pull' event
-                let waker       = ctxt.waker().clone();
-                let stream_id   = self.identifier;
-
-                self.core.desync(move |core| {
-                    core.wake_stream(stream_id, waker);
-                });
-
-                Poll::Pending
-            }
+            Poll::Ready(Poll::Pending)      => Poll::Pending,
 
             Poll::Pending                   => {
                 // Poll the future again when it notifies
