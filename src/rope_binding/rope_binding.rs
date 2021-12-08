@@ -156,7 +156,10 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     pub fn len(&self) -> usize {
         BindingContext::add_dependency(self.clone());
 
-        self.core.sync(|core| core.rope.len())
+        self.core.sync(|core| {
+            core.pull_rope();
+            core.rope.len()
+        })
     }
 
     ///
@@ -166,7 +169,10 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         BindingContext::add_dependency(self.clone());
 
         // Read this range of cells by cloning from the core
-        let cells = self.core.sync(|core| core.rope.read_cells(range).cloned().collect::<Vec<_>>());
+        let cells = self.core.sync(|core| {
+            core.pull_rope();
+            core.rope.read_cells(range).cloned().collect::<Vec<_>>()
+        });
 
         cells.into_iter()
     }
@@ -178,6 +184,8 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         BindingContext::add_dependency(self.clone());
 
         let (attribute, range) = self.core.sync(|core| {
+            core.pull_rope();
+
             let (attribute, range) = core.rope.read_attributes(pos);
             (attribute.clone(), range)
         });
