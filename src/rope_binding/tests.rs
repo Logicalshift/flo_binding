@@ -358,3 +358,35 @@ fn bind_rope_mut_read_cells_to_computed() {
     assert!(rope_cells.get() == vec![1,1]);
     assert!(*is_changed.lock().unwrap() == true);
 }
+
+#[test]
+fn following_rope_generates_when_changed() {
+    // Create a rope
+    let rope            = RopeBindingMut::<_, ()>::new();
+    let following_rope  = RopeBinding::from_stream(rope.follow_changes());
+
+    // Computed binding containing the rope length
+    let rope_copy       = following_rope.clone();
+    let rope_cells      = computed(move || rope_copy.read_cells(0..2).collect::<Vec<_>>());
+
+    // Follow the rope so we know when it's updated
+    let mut follow_rope = following_rope.follow_changes();
+
+    // Initial length is 0
+    assert!(rope_cells.get() == vec![]);
+
+    let is_changed      = Arc::new(Mutex::new(false));
+    let is_changed_copy = is_changed.clone();
+    rope_cells.when_changed(notify(move || *is_changed_copy.lock().unwrap() = true)).keep_alive();
+
+    // Update the cells
+    let val = vec![1, 1, 1, 1];
+    rope.replace(0..0, val);
+    executor::block_on(async { follow_rope.next().await });
+
+    rope.len();
+    following_rope.len();
+
+    assert!(*is_changed.lock().unwrap() == true);
+    assert!(rope_cells.get() == vec![1,1]);
+}
