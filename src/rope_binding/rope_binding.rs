@@ -429,6 +429,8 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         BindingContext::add_dependency(self.clone());
 
         self.core.sync(|core| {
+            core.pull_rope();
+
             // Create a new rope from the existing one
             let mut rope_copy   = AttributedRope::new();
 
