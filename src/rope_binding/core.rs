@@ -39,12 +39,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     }
 
     ///
-    /// Callback: the rope has changes to pull
+    /// Wake anything that's listening to the core
     ///
-    pub (super) fn on_pull(&mut self) {
-        // Clear out any notifications that are not being used any more
-        self.filter_unused_notifications();
-
+    pub (super) fn wake(&mut self) {
         // Notify anything that's listening
         for notifiable in &self.when_changed {
             notifiable.mark_as_changed();
@@ -62,6 +59,17 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
                 stream.needs_pull = true;
             }
         }
+    }
+
+    ///
+    /// Callback: the rope has changes to pull
+    ///
+    pub (super) fn on_pull(&mut self) {
+        // Clear out any notifications that are not being used any more
+        self.filter_unused_notifications();
+
+        // Notify anything that's listening
+        self.wake();
     }
 
     ///
@@ -87,14 +95,11 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
         }
 
         // Wake all of the streams
-        for stream in self.stream_states.iter_mut() {
-            let waker = stream.waker.take();
-            waker.map(|waker| waker.wake());
-        }
+        self.wake();
     }
 
     ///
-    /// Wakes a particular stream when the rope changes
+    /// Sets a stream to wake when the rope changes
     ///
     pub (super) fn wake_stream(&mut self, stream_id: usize, waker: Waker) {
         self.stream_states
