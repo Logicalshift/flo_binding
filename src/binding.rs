@@ -232,3 +232,45 @@ impl<'a, Value: 'static+Clone+PartialEq+Send> From<&'a Value> for Binding<Value>
         Binding::new(val.clone())
     }
 }
+
+#[derive(Clone)]
+struct NeverEqual;
+
+impl PartialEq for NeverEqual {
+    fn eq(&self, _: &Self) -> bool {
+        false
+    }
+}
+
+/// owo
+#[derive(Clone)]
+pub struct Signal {
+    binding: Binding<NeverEqual>
+}
+
+/// Sometimes you want to store a value somewhere else (not in a `Binding`).
+/// In that case, you can create a `Signal` that the value has been changed.
+/// Then each `ComputedBinding` which uses the value must `observe()` the `Signal`.
+/// Additionally, when the value is changed, the mutating function must call
+/// `Signal::emit()` as well.
+/// If either of these is forgotten, you *will* get desyncs.
+impl Signal {
+    pub fn new() -> Signal {
+        Signal {
+            binding: Binding::new(NeverEqual)
+        }
+    }
+
+    /// Each `ComputedBinding` which uses the "signalled" value must call
+    /// `Signal::observe()` before accessing the value (or after, it doesn't matter).
+    /// This ensures that the computation function is rerun when the value is changed.
+    pub fn observe(&self) {
+        self.binding.get();
+    }
+
+    /// When the value is changed, the mutating function must call
+    /// `Signal::emit()` as well.
+    pub fn emit(&self) {
+        self.binding.set(NeverEqual);
+    }
+}
