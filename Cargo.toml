@@ -19,7 +19,10 @@ rope            = [ "desync", "futures", "flo_rope" ]
 diff            = [ "similar" ]
 
 [dependencies]
-desync          = { version = "0.7", optional = true }
+desync          = { version = "0.8", optional = true }
 futures         = { version = "0.3", optional = true }
 flo_rope        = { version = "0.2", optional = true }
 similar         = { version = "2.1", optional = true }
+
+[patch.crates-io]
+desync          = { git = "https://github.com/logicalshift/desync", branch = "v0.8.0" }
