@@ -82,7 +82,7 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
                         // No changes are waiting
                         Poll::Pending
                     }
-                }.boxed()
+                }
             })
             .map(|result| {
                 // Error would indicate the core had gone away before the request should complete, so we signal this as an end-of-stream event
