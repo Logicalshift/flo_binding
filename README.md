@@ -126,3 +126,6 @@ provides more flexible ways for distributing state through streams.
 [`flo_scene`](https://github.com/logicalshift/flo_scene) is a runtime for building
 complex systems out of entities that exchange messages with each other. It uses
 `flo_binding` as an ergonomic way to exchange state information.
+
+[`FlowBetween`](https://github.com/logicalshift/flowbetween) is a vector and
+2D animation editor that uses `flo_binding` to represent its UI.
