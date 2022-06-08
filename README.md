@@ -35,9 +35,9 @@ Stream of the most recent value attached to the binding. The streaming approach
 is the most flexible.
 
 ```Rust
-    let binding         = bind(1);
-    let event_lifetime  = binding.when_changed(notify(|| { println!("Binding changed"); }));
-    let binding_stream  = follow(binding);
+    let binding             = bind(1);
+    let mut event_lifetime  = binding.when_changed(notify(|| { println!("Binding changed"); }));
+    let mut binding_stream  = follow(binding.clone());
 
     let value = binding_stream.next().await;        // == 1
     binding.set(2);                                 // Prints 'Binding changed'
@@ -57,7 +57,7 @@ up to date with whatever the last value received from a stream is:
 
 ```Rust
     let binding             = bind(1);
-    let binding_from_stream = bind_stream(follow(binding));
+    let binding_from_stream = bind_stream(follow(binding.clone()), 1, |_old_value, new_value| new_value);
 
     let value = binding.get();                  // == 1
     let value = binding_from_stream.get();      // == 1
@@ -76,11 +76,11 @@ automatically monitor any bindings that were captured for changes, so they can b
 `follow`ed or `when_change`d as with any other binding:
 
 ```Rust
-    let binding         = bind(1);
-    let binding_copy    = binding.clone();
-    let one_more        = computed(move || binding_copy.get() + 1);
+    let binding             = bind(1);
+    let binding_copy        = binding.clone();
+    let one_more            = computed(move || binding_copy.get() + 1);
 
-    let event_lifetime  = one_more.when_changed(notify(|| println!("Computed binding changed")));
+    let mut event_lifetime  = one_more.when_changed(notify(|| println!("Computed binding changed")));
 
     let value = one_more.get();     // == 2 (1 + 1)
     binding.set(2);                 // Prints 'Computed binding changed'
@@ -107,7 +107,7 @@ information.
     let next            = rope_stream.next().await;                         // == RopeAction::Replace(0..0, vec![1,2,3,4]))
 
     let rope_len        = rope_copy.len();                                  // == 4
-    let rope_content    = rope_copy.read_cells(0..4).collect::<Vec<_>>()    // == vec![1, 2, 3, 4]
+    let rope_content    = rope_copy.read_cells(0..4).collect::<Vec<_>>();   // == vec![1, 2, 3, 4]
 ```
 
 The `flo_rope` library provides some extra functionality - for example, a way to create the
