@@ -5,8 +5,6 @@ use futures::*;
 use futures::task;
 use futures::task::{Poll};
 
-use ::desync::*;
-
 use std::pin::{Pin};
 use std::sync::*;
 use std::marker::PhantomData;
@@ -40,21 +38,31 @@ struct FollowCore<TValue, Binding: Bound<TValue>> {
 ///
 /// Stream that follows the values of a binding
 /// 
-pub struct FollowStream<TValue: Send+Unpin, Binding: Bound<TValue>> {
+pub struct FollowStream<TValue: Send, Binding: Bound<TValue>> 
+where 
+    TValue:     Send,
+    Binding:    Bound<TValue>,
+{
     /// The core of this future
-    core: Arc<Desync<FollowCore<TValue, Binding>>>,
+    core: Arc<Mutex<FollowCore<TValue, Binding>>>,
 
     /// Lifetime of the watcher
     _watcher: Box<dyn Releasable>,
 }
 
-impl<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>> Stream for FollowStream<TValue, Binding> {
+impl<TValue, Binding> Stream for FollowStream<TValue, Binding>
+where
+    TValue:     'static + Send,
+    Binding:    'static + Bound<TValue>,
+{
     type Item   = TValue;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Option<Self::Item>> {
         // If the core is in a 'changed' state, return the binding so we can fetch it
         // Want to fetch the binding value outside of the lock as it can potentially change during calculation
-        let binding = self.core.sync(|core| {
+        let binding = {
+            let mut core = self.core.lock().unwrap();
+
             match core.state {
                 FollowState::Unchanged => {
                     // Wake this future when changed
@@ -68,7 +76,7 @@ impl<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>> Stream for Foll
                     Some(Arc::clone(&core.binding))
                 }
             }
-        });
+        };
 
         if let Some(binding) = binding {
             Poll::Ready(Some(binding.get()))
@@ -81,7 +89,11 @@ impl<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>> Stream for Foll
 ///
 /// Creates a stream from a binding
 /// 
-pub fn follow<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>>(binding: Binding) -> FollowStream<TValue, Binding> {
+pub fn follow<TValue, Binding>(binding: Binding) -> FollowStream<TValue, Binding>
+where
+    TValue:     'static + Send,
+    Binding:    'static + Bound<TValue>,
+{
     // Generate the initial core
     let core = FollowCore {
         state:      FollowState::Changed,
@@ -91,17 +103,23 @@ pub fn follow<TValue: 'static+Send+Unpin, Binding: 'static+Bound<TValue>>(bindin
     };
 
     // Notify whenever the binding changes
-    let core        = Arc::new(Desync::new(core));
+    let core        = Arc::new(Mutex::new(core));
     let weak_core   = Arc::downgrade(&core);
-    let watcher     = core.sync(move |core| core.binding.when_changed(notify(move || {
-        if let Some(core) = weak_core.upgrade() {
-            let task = core.sync(|core| {
-                core.state = FollowState::Changed;
-                core.notify.take()
-            });
-            task.map(|task| task.wake());
-        }
-    })));
+    let watcher     = {
+        let core = core.lock().unwrap();
+
+        core.binding.when_changed(notify(move || {
+            if let Some(core) = weak_core.upgrade() {
+                let task = {
+                    let mut core = core.lock().unwrap();
+
+                    core.state = FollowState::Changed;
+                    core.notify.take()
+                };
+                task.map(|task| task.wake());
+            }
+        }))
+    };
 
     // Create the stream
     FollowStream {
@@ -117,6 +135,8 @@ mod test {
 
     use futures::executor;
     use futures::task::{ArcWake, Context, waker_ref};
+
+    use ::desync::*;
 
     use std::thread;
     use std::time::Duration;
