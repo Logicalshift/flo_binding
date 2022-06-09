@@ -90,7 +90,8 @@ impl Changeable for BindingDependencies {
 
 ///
 /// Represents a binding context. Binding contexts are
-/// per-thread structures, used to track 
+/// per-thread structures, used to track which bindings
+/// have been accessed in a `computed()` function.
 ///
 #[derive(Clone)]
 pub struct BindingContext {
@@ -98,7 +99,7 @@ pub struct BindingContext {
     dependencies: BindingDependencies,
 
     /// None, or the binding context that this context was created within
-    nested: Option<Box<BindingContext>>
+    _nested: Option<Box<BindingContext>>
 }
 
 impl BindingContext {
@@ -135,7 +136,7 @@ impl BindingContext {
         let dependencies    = BindingDependencies::new();
         let new_context     = BindingContext {
             dependencies:   dependencies.clone(),
-            nested:         previous_context.clone().map(Box::new)
+            _nested:        previous_context.clone().map(Box::new)
         };
 
         // Make the current context the same as the new context
