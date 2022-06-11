@@ -21,16 +21,18 @@ use std::collections::{VecDeque};
 ///
 pub struct RopeBindingMut<Cell, Attribute> 
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Unpin+Clone+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Unpin + Clone+PartialEq + Default,
+{
     /// The core of this binding
     core: Arc<Desync<RopeBindingCore<Cell, Attribute>>>,
 }
 
 impl<Cell, Attribute> RopeBindingMut<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
     ///
     /// Creates a new rope binding from a stream of changes
     ///
@@ -151,8 +153,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
 impl<Cell, Attribute> BoundRope<Cell, Attribute> for RopeBindingMut<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
     ///
     /// Creates a stream that follows the changes to this rope
     ///
@@ -200,8 +203,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
 impl<Cell, Attribute> Clone for RopeBindingMut<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin+PartialEq + Default,
+{
     fn clone(&self) -> RopeBindingMut<Cell, Attribute> {
         // Increase the usage count
         let core = self.core.clone();
@@ -214,8 +218,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
 impl<Cell, Attribute> Drop for RopeBindingMut<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
     fn drop(&mut self) {
         self.core.desync(|core| {
             // Core is no longer in use
@@ -231,8 +236,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
 impl<Cell, Attribute> Changeable for RopeBindingMut<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
     ///
     /// Supplies a function to be notified when this item is changed
     /// 
@@ -264,8 +270,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 ///
 impl<Cell, Attribute> Bound<AttributedRope<Cell, Attribute>> for RopeBindingMut<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
     ///
     /// Retrieves the value stored by this binding
     ///

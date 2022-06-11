@@ -35,16 +35,18 @@ use std::collections::{VecDeque};
 ///
 pub struct RopeBinding<Cell, Attribute> 
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Unpin+Clone+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Unpin + Clone + PartialEq + Default,
+{
     /// The core of this binding
     core: Arc<Desync<RopeBindingCore<Cell, Attribute>>>,
 }
 
 impl<Cell, Attribute> RopeBinding<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
     ///
     /// Generates a rope binding by tracking a mutable binding
     ///
@@ -55,7 +57,10 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     ///
     /// Creates a new rope binding from a stream of changes
     ///
-    pub fn from_stream<S: 'static+Stream<Item=RopeAction<Cell, Attribute>>+Unpin+Send>(stream: S) -> Self {
+    pub fn from_stream<S>(stream: S) -> Self
+    where 
+        S: 'static + Stream<Item=RopeAction<Cell, Attribute>> + Unpin + Send
+    {
         // Create the core
         let core        = RopeBindingCore {
             usage_count:    1,
@@ -97,7 +102,11 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
     /// Creates a rope binding that entirely replaces its set of cells by following a computed value (the attributes will always
     /// have their default values when using this method)
     ///
-    pub fn computed<TFn: 'static+Send+Fn() -> TValueIter, TValueIter: IntoIterator<Item=Cell>>(calculate_value: TFn) -> Self {
+    pub fn computed<TFn, TValueIter>(calculate_value: TFn) -> Self
+    where
+        TFn:        'static + Send + Fn() -> TValueIter,
+        TValueIter: IntoIterator<Item=Cell>,
+    {
         // Create a stream of changes by following the function
         let mut length          = 0;
         let new_value           = Arc::new(Mutex::new(true));
@@ -197,8 +206,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
 impl<Cell, Attribute> RopeBinding<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq+Hash+Ord+Eq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq + Hash + Ord + Eq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
     ///
     /// Similar to computed, but instead of always replacing the entire rope, replaces only the sections that are different between the
     /// two values.
@@ -282,8 +292,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
 impl<Cell, Attribute> BoundRope<Cell, Attribute> for RopeBinding<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
     ///
     /// Creates a stream that follows the changes to this rope
     ///
@@ -357,8 +368,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
 impl<Cell, Attribute> Clone for RopeBinding<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
     fn clone(&self) -> RopeBinding<Cell, Attribute> {
         // Increase the usage count
         let core = self.core.clone();
@@ -371,8 +383,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
 impl<Cell, Attribute> Drop for RopeBinding<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default
+{
     fn drop(&mut self) {
         self.core.desync(|core| {
             // Core is no longer in use
@@ -388,8 +401,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
 impl<Cell, Attribute> Changeable for RopeBinding<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default 
+{
     ///
     /// Supplies a function to be notified when this item is changed
     /// 
@@ -420,8 +434,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 ///
 impl<Cell, Attribute> Bound<AttributedRope<Cell, Attribute>> for RopeBinding<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default
+{
     ///
     /// Retrieves the value stored by this binding
     ///
