@@ -10,8 +10,9 @@ use flo_rope::*;
 use ::desync::*;
 
 use std::sync::*;
-use std::ops::{Range};
+use std::ops::{AddAssign, Range};
 use std::collections::{VecDeque};
+use std::iter;
 
 ///
 /// A rope binding binds a vector of cells and attributes
@@ -123,11 +124,73 @@ where
     /// Replaces a range of cells. The attributes applied to the new cells will be the same
     /// as the attributes that were applied to the first cell in the replacement range
     ///
-    pub fn replace<NewCells: 'static+Send+IntoIterator<Item=Cell>>(&self, range: Range<usize>, new_cells: NewCells) {
+    pub fn replace<NewCells>(&self, range: Range<usize>, new_cells: NewCells) 
+    where
+        NewCells: 'static + Send + IntoIterator<Item=Cell>,
+    {
         self.core.sync(move |core| {
             core.rope.replace(range, new_cells);
             core.wake();
         });
+    }
+
+    ///
+    /// Adds new cells to the end of this rope
+    ///
+    pub fn extend<I>(&self, iter: I)
+    where
+        I: 'static + Send + IntoIterator<Item=Cell>
+    {
+        let len = self.len();
+        self.replace(len..len, iter);
+    }
+
+    ///
+    /// Retains the cells that match the predicate
+    ///
+    pub fn retain_cells<TFn>(&self, retain_fn: TFn)
+    where
+        TFn: Send + FnMut(&Cell) -> bool,
+    {
+        self.core.sync(move |core| {
+            // Find ranges where the function is false
+            let mut start_pos       = 0;
+            let mut last_result     = true;
+            let mut replace_ranges  = vec![];
+            let mut retain_fn       = retain_fn;
+
+            for (idx, cell) in core.rope.read_cells(0..core.rope.len()).enumerate() {
+                // See if we retain this cell
+                let this_result = retain_fn(cell);
+
+                if last_result == true && this_result == false {
+                    // Moving from true -> false = update the start of the range
+                    start_pos = idx;
+                }
+
+                if last_result == false && this_result == true {
+                    // Moving from false -> true = remove this range
+                    replace_ranges.push(start_pos..idx);
+                }
+
+                last_result = this_result;
+            }
+
+            if last_result == false {
+                replace_ranges.push(start_pos..core.rope.len());
+            }
+
+            // Replace the ranges in the rope that are not retained with nothing
+            if !replace_ranges.is_empty() {
+                // Remove the cells from the rope
+                replace_ranges.into_iter()
+                    .rev()
+                    .for_each(|range| core.rope.replace(range, iter::empty()));
+
+                // Wake the core as there are changes
+                core.wake();
+            }
+        })
     }
 
     ///
@@ -308,5 +371,86 @@ where
 
             rope_copy
         })
+    }
+}
+
+impl<Cell, Attribute> AddAssign<Cell> for RopeBindingMut<Cell, Attribute>
+where 
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
+    fn add_assign(&mut self, other: Cell) {
+        let len = self.len();
+        self.replace(len..len, iter::once(other));
+    }
+}
+
+impl<Cell, Attribute> PartialEq for RopeBindingMut<Cell, Attribute>
+where 
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
+    fn eq(&self, other: &RopeBindingMut<Cell, Attribute>) -> bool {
+        // Compare lengths
+        if self.len() != other.len() {
+            return false;
+        }
+
+        // Compare cells
+        let mut cells_a = self.read_cells(0..self.len());
+        let mut cells_b = other.read_cells(0..other.len());
+
+        while let (Some(a), Some(b)) = (cells_a.next(), cells_b.next()) {
+            if a != b {
+                return false;
+            }
+        }
+
+        // Compare attributes (coverage of each attribute may vary between the two styles)
+        let len                         = self.len();
+        let (mut attr_a, mut range_a)   = self.read_attributes(0);
+        let (mut attr_b, mut range_b)   = other.read_attributes(0);
+
+        loop {
+            // Ranges should never be 0-length
+            debug_assert!(range_a.len() != 0 && range_b.len() != 0);
+
+            // Move the 'a' range on if range_b starts after it, similarly for range_b
+            if range_b.start >= range_a.end || range_a.start == range_a.end {
+                let (new_attr, new_range) = self.read_attributes(range_b.start);
+                attr_a  = new_attr;
+                range_a = new_range;
+            }
+
+            if range_a.start >= range_b.end || range_b.start == range_b.end {
+                let (new_attr, new_range) = other.read_attributes(range_a.start);
+                attr_b  = new_attr;
+                range_b = new_range;
+            }
+
+            // range_a and range_b should now overlap
+            if attr_a != attr_b {
+                return false;
+            }
+
+            // Move range_a or range_b onwards
+            if range_a.end >= len && range_b.end >= len {
+                // All attributes compared
+                break;
+            }
+
+            if range_a.end <= range_b.end {
+                let (new_attr, new_range) = self.read_attributes(range_a.end);
+                attr_a  = new_attr;
+                range_a = new_range;
+            } else {
+                let (new_attr, new_range) = other.read_attributes(range_b.end);
+                attr_b  = new_attr;
+                range_b = new_range;
+            }
+        }
+
+        // All equality tests passed
+        return true;
     }
 }

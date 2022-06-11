@@ -390,3 +390,83 @@ fn following_rope_generates_when_changed() {
     assert!(*is_changed.lock().unwrap() == true);
     assert!(rope_cells.get() == vec![1,1]);
 }
+
+#[test]
+fn retain_cells_1() {
+    // Create a rope
+    let rope = RopeBindingMut::<_, ()>::new();
+
+    // Load with numbers from 0 to 10
+    rope.replace(0..0, 0..10);
+
+    // Retain the even numbers
+    rope.retain_cells(|x| (x%2) == 0);
+
+    // Rope should contain 5 even numbers
+    assert!(rope.len() == 5);
+    assert!(rope.read_cells(0..5).collect::<Vec<_>>() == vec![0, 2, 4, 6, 8]);
+}
+
+#[test]
+fn retain_cells_2() {
+    // Create a rope
+    let rope = RopeBindingMut::<_, ()>::new();
+
+    // Load with numbers from 0 to 10
+    rope.replace(0..0, 0..10);
+
+    // Retain the odd numbers
+    rope.retain_cells(|x| (x%2) == 1);
+
+    // Rope should contain 5 odd numbers
+    assert!(rope.len() == 5);
+    assert!(rope.read_cells(0..5).collect::<Vec<_>>() == vec![1, 3, 5, 7, 9]);
+}
+
+#[test]
+fn retain_cells_3() {
+    // Create a rope
+    let rope = RopeBindingMut::<_, ()>::new();
+
+    // Load with numbers from 0 to 10
+    rope.replace(0..0, 0..10);
+
+    // Retain the first and last numbers
+    rope.retain_cells(|x| *x < 1 || *x > 8);
+
+    // Rope should contain the first and the last numbers
+    assert!(rope.len() == 2);
+    assert!(rope.read_cells(0..5).collect::<Vec<_>>() == vec![0, 9]);
+}
+
+#[test]
+fn retain_cells_4() {
+    // Create a rope
+    let rope = RopeBindingMut::<_, ()>::new();
+
+    // Load with numbers from 0 to 10
+    rope.replace(0..0, 0..10);
+
+    // Retain the first numbers
+    rope.retain_cells(|x| *x < 5);
+
+    // Rope should contain the first 5 numbers
+    assert!(rope.len() == 5);
+    assert!(rope.read_cells(0..5).collect::<Vec<_>>() == vec![0, 1, 2, 3, 4]);
+}
+
+#[test]
+fn retain_cells_5() {
+    // Create a rope
+    let rope = RopeBindingMut::<_, ()>::new();
+
+    // Load with numbers from 0 to 10
+    rope.replace(0..0, 0..10);
+
+    // Retain the last numbers
+    rope.retain_cells(|x| *x >= 5);
+
+    // Rope should contain the last 5 numbers
+    assert!(rope.len() == 5);
+    assert!(rope.read_cells(0..5).collect::<Vec<_>>() == vec![5, 6, 7, 8, 9]);
+}
