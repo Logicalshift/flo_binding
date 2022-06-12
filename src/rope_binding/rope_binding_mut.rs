@@ -23,7 +23,7 @@ use std::iter;
 pub struct RopeBindingMut<Cell, Attribute> 
 where 
     Cell:       'static + Send + Unpin + Clone + PartialEq,
-    Attribute:  'static + Send + Sync + Unpin + Clone+PartialEq + Default,
+    Attribute:  'static + Send + Sync + Unpin + Clone + PartialEq + Default,
 {
     /// The core of this binding
     core: Arc<Desync<RopeBindingCore<Cell, Attribute>>>,

@@ -474,3 +474,13 @@ where
         })
     }
 }
+
+impl<Cell, Attribute> From<&RopeBindingMut<Cell, Attribute>> for RopeBinding<Cell, Attribute>
+where
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
+    fn from(mut_binding: &RopeBindingMut<Cell, Attribute>) -> RopeBinding<Cell, Attribute> {
+        RopeBinding::from_mutable(mut_binding)
+    }
+}
