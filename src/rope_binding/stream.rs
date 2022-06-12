@@ -18,8 +18,9 @@ use std::collections::{VecDeque};
 ///
 pub struct RopeStream<Cell, Attribute> 
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
     /// The identifier for this stream
     pub (super) identifier: usize,
 
@@ -38,8 +39,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
 impl<Cell, Attribute> Stream for RopeStream<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default,
+{
     type Item = RopeAction<Cell,Attribute>;
 
     fn poll_next(mut self: Pin<&mut Self>, ctxt: &mut Context<'_>) -> Poll<Option<RopeAction<Cell, Attribute>>> { 
@@ -131,8 +133,9 @@ Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
 
 impl<Cell, Attribute> Drop for RopeStream<Cell, Attribute>
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default 
+{
     fn drop(&mut self) {
         // Remove the stream state when the stream is no more
         let dropped_stream_id   = self.identifier;
