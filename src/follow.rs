@@ -116,7 +116,10 @@ where
                     core.state = FollowState::Changed;
                     core.notify.take()
                 };
-                task.map(|task| task.wake());
+
+                if let Some(task) = task {
+                    task.wake();
+                }
             }
         }))
     };
