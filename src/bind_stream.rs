@@ -107,7 +107,7 @@ impl<Value: 'static+Send> Changeable for StreamBinding<Value> {
         let notifiable = releasable.clone_as_owned();
 
         // Send to the core
-        self.core.desync(move |core| {
+        self.core.sync(move |core| {
             core.notifications.push(notifiable);
         });
 
