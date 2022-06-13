@@ -11,10 +11,12 @@ use std::sync::*;
 /// Uses a stream to update a binding
 /// 
 pub fn bind_stream<S, Value, UpdateFn>(stream: S, initial_value: Value, update: UpdateFn) -> StreamBinding<Value>
-where   S:          'static+Send+Stream+Unpin,
-        Value:      'static+Send+Clone+PartialEq,
-        UpdateFn:   'static+Send+FnMut(Value, S::Item) -> Value,
-        S::Item:    Send {
+where
+    S:          'static + Send + Stream + Unpin,
+    Value:      'static + Send + Clone + PartialEq,
+    UpdateFn:   'static + Send + FnMut(Value, S::Item) -> Value,
+    S::Item:    Send,
+{
     // Create the content of the binding
     let value       = Arc::new(Mutex::new(initial_value));
     let core        = StreamBindingCore {
