@@ -1,3 +1,5 @@
+use crate::watcher::*;
+
 use std::sync::*;
 
 ///
@@ -32,11 +34,10 @@ pub trait Releasable : Send {
 pub trait Changeable {
     ///
     /// Supplies a function to be notified when this item is changed
-    /// 
-    /// This event is only fired after the value has been read since the most recent
-    /// change. Note that this means if the value is never read, this event may
-    /// never fire. This behaviour is desirable when deferring updates as it prevents
-    /// large cascades of 'changed' events occurring for complicated dependency trees.
+    ///
+    /// This will always fire if the value has been changed since it was last 
+    /// read. The notification may fire more often than this depending on the
+    /// implementation of the `Changeable` trait.
     /// 
     /// The releasable that's returned has keep_alive turned off by default, so
     /// be sure to store it in a variable or call keep_alive() to keep it around
@@ -48,11 +49,22 @@ pub trait Changeable {
 ///
 /// Trait implemented by something that is bound to a value
 ///
-pub trait Bound<Value> : Changeable+Send+Sync {
+pub trait Bound<Value> : Changeable + Send + Sync {
     ///
     /// Retrieves the value stored by this binding
     ///
     fn get(&self) -> Value;
+
+    ///
+    /// Creates a watcher: this provides a way to retrieve the value stored in this 
+    /// binding, and will call the notification function if the value has changed 
+    /// since it was last read.
+    ///
+    /// This is a non-async version of the `follow()` function.
+    ///
+    fn watch(&mut self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>> {
+        unimplemented!()
+    }
 }
 
 ///
@@ -75,6 +87,7 @@ pub trait WithBound<Value>: Changeable + Send + Sync {
     where
         F: FnOnce(&mut Value) -> bool;
 }
+
 ///
 /// Trait implemented by something that is bound to a value that can be changed
 /// 

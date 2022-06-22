@@ -15,7 +15,7 @@ struct BoundValue<Value> {
     when_changed: Vec<ReleasableNotifiable>
 }
 
-impl<Value: Clone+PartialEq> BoundValue<Value> {
+impl<Value: Clone + PartialEq> BoundValue<Value> {
     ///
     /// Creates a new binding with the specified value
     ///
