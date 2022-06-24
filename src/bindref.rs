@@ -1,6 +1,7 @@
-use super::traits::*;
-use super::binding::*;
-use super::computed::*;
+use crate::traits::*;
+use crate::binding::*;
+use crate::watcher::*;
+use crate::computed::*;
 #[cfg(feature = "stream")]
 use super::bind_stream::*;
 
@@ -22,6 +23,11 @@ impl<Value> Bound<Value> for BindRef<Value> {
     #[inline]
     fn get(&self) -> Value {
         self.reference.get()
+    }
+
+    #[inline]
+    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>> {
+        self.reference.watch(what)
     }
 }
 
@@ -165,5 +171,33 @@ mod test {
         bind.set(2);
 
         assert!(bind_ref.get() == 2);
+    }
+
+    #[test]
+    fn watcher_notifies_after_get() {
+        let bound           = bind(1);
+        let change_count    = bind(0);
+
+        let notify_count    = change_count.clone();
+        let bound_ref       = BindRef::new(&bound);
+        let watcher         = bound_ref.watch(notify(move || { let count = notify_count.get(); notify_count.set(count+1) }));
+
+        assert!(change_count.get() == 0);
+        bound.set(2);
+        assert!(change_count.get() == 0);
+
+        watcher.get();
+        bound.set(3);
+        assert!(change_count.get() == 1);
+
+        bound.set(4);
+        assert!(change_count.get() == 1);
+
+        bound.set(5);
+        assert!(change_count.get() == 1);
+
+        watcher.get();
+        bound.set(6);
+        assert!(change_count.get() == 2);
     }
 }
