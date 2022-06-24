@@ -62,9 +62,7 @@ pub trait Bound<Value> : Changeable + Send + Sync {
     ///
     /// This is a non-async version of the `follow()` function.
     ///
-    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>> {
-        unimplemented!()
-    }
+    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>>;
 }
 
 ///
