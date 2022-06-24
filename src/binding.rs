@@ -1,6 +1,7 @@
-use super::traits::*;
-use super::releasable::*;
-use super::binding_context::*;
+use crate::traits::*;
+use crate::watcher::*;
+use crate::releasable::*;
+use crate::binding_context::*;
 
 use std::sync::*;
 
@@ -71,13 +72,13 @@ impl<Value: Clone + PartialEq> BoundValue<Value> {
     ///
     /// Adds something that will be notified when this item changes
     ///
-    fn when_changed(&mut self, what: Arc<dyn Notifiable>) -> Box<dyn Releasable> {
+    fn when_changed(&mut self, what: Arc<dyn Notifiable>) -> ReleasableNotifiable {
         let releasable = ReleasableNotifiable::new(what);
         self.when_changed.push(releasable.clone_as_owned());
 
         self.filter_unused_notifications();
 
-        Box::new(releasable)
+        releasable
     }
 }
 
@@ -135,7 +136,7 @@ impl<Value: Clone+PartialEq> Binding<Value> {
 
 impl<Value: 'static+Clone+PartialEq+Send> Changeable for Binding<Value> {
     fn when_changed(&self, what: Arc<dyn Notifiable>) -> Box<dyn Releasable> {
-        self.value.lock().unwrap().when_changed(what)
+        Box::new(self.value.lock().unwrap().when_changed(what))
     }
 }
 
@@ -144,6 +145,16 @@ impl<Value: 'static+Clone+PartialEq+Send> Bound<Value> for Binding<Value> {
         BindingContext::add_dependency(self.clone());
 
         self.value.lock().unwrap().get()
+    }
+
+    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>> {
+        let watch_binding           = self.clone();
+        let (watcher, notifiable)   = NotifyWatcher::new(move || watch_binding.get(), what);
+
+        self.value.lock().unwrap().when_changed.push(notifiable);
+        self.value.lock().unwrap().filter_unused_notifications();
+
+        Arc::new(watcher)
     }
 }
 

@@ -268,6 +268,33 @@ mod test {
     }
 
     #[test]
+    fn watcher_notifies_after_get() {
+        let bound           = bind(1);
+        let change_count    = bind(0);
+
+        let notify_count    = change_count.clone();
+        let watcher         = bound.watch(notify(move || { let count = notify_count.get(); notify_count.set(count+1) }));
+
+        assert!(change_count.get() == 0);
+        bound.set(2);
+        assert!(change_count.get() == 0);
+
+        watcher.get();
+        bound.set(3);
+        assert!(change_count.get() == 1);
+
+        bound.set(4);
+        assert!(change_count.get() == 1);
+
+        bound.set(5);
+        assert!(change_count.get() == 1);
+
+        watcher.get();
+        bound.set(6);
+        assert!(change_count.get() == 2);
+    }
+
+    #[test]
     fn dispatches_multiple_notifications() {
         let bound           = bind(1);
         let change_count    = bind(0);

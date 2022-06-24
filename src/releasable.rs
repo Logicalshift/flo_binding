@@ -35,13 +35,7 @@ impl ReleasableNotifiable {
     ///
     pub fn mark_as_changed(&self) -> bool {
         // Get a reference to the target via the lock
-        let target = {
-            // Reset the optional item so that it's 'None'
-            let target = self.target.lock().unwrap();
-
-            // Send to the target
-            target.clone()
-        };
+        let target = self.target.lock().unwrap().clone();
 
         // Send to the target
         if let Some(ref target) = target {
