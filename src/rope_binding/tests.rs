@@ -25,6 +25,37 @@ fn mutable_rope_sends_changes_to_stream() {
 }
 
 #[test]
+fn watch_mutable_rope() {
+    // Create a rope that copies changes from a mutable rope
+    let mutable_rope        = RopeBindingMut::<usize, ()>::new();
+
+    let change_count        = bind(0);
+    let change_counter      = change_count.clone();
+    let watcher             = mutable_rope.watch(notify(move || change_counter.set(change_counter.get() + 1)));
+    let mut rope_stream     = mutable_rope.follow_changes();
+
+    // Write some data to the mutable rope
+    mutable_rope.replace(0..0, vec![1, 2, 3, 4]);
+
+    // Watcher hasn't been read, so no changes
+    executor::block_on(async { rope_stream.next().await });
+    assert!(change_count.get() == 0);
+
+    // Read from the watcher and replace again: should have some changes
+    watcher.get();
+    mutable_rope.replace(0..4, vec![1, 2, 3, 4, 5]);
+
+    executor::block_on(async { rope_stream.next().await });
+    assert!(change_count.get() == 1);
+
+    // But we don't notify on another change until the watcher is read from again
+    mutable_rope.replace(0..5, vec![1, 2, 3, 4]);
+
+    executor::block_on(async { rope_stream.next().await });
+    assert!(change_count.get() == 1);
+}
+
+#[test]
 fn pull_from_mutable_binding() {
     // Create a rope that copies changes from a mutable rope
     let mutable_rope        = RopeBindingMut::<usize, ()>::new();
@@ -98,6 +129,43 @@ fn map_ropes() {
     rope.replace(1..1, vec![8, 9, 10]);
     executor::block_on(async { follow_add.next().await });
     assert!(add_one.read_cells(0..6).collect::<Vec<_>>() == vec![2, 9, 10, 11, 3, 4]);
+}
+
+#[test]
+fn watch_computed_rope() {
+    // Create a length binding and compute a rope from it
+    let length          = bind(0);
+    let length_copy     = length.clone();
+    let rope            = RopeBinding::<_, ()>::computed(move || (0..length_copy.get()).into_iter().map(|idx| idx));
+
+    // Follow a the rope changes so we can sync up with the changes
+    let change_count    = bind(0);
+    let change_counter  = change_count.clone();
+    let watcher         = rope.watch(notify(move || change_counter.set(change_counter.get() + 1)));
+    let mut follow_rope = rope.follow_changes();
+
+    // Mess with the length
+    length.set(1);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 1);
+    assert!(change_count.get() == 0);
+
+    watcher.get();
+    length.set(3);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 3);
+    assert!(change_count.get() == 1);
+
+    length.set(2);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 2);
+    assert!(change_count.get() == 1);
+
+    watcher.get();
+    length.set(10);
+    executor::block_on(async { follow_rope.next().await });
+    assert!(rope.len() == 10);
+    assert!(change_count.get() == 2);
 }
 
 #[test]

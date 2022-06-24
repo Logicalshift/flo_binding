@@ -1,4 +1,5 @@
 use crate::traits::*;
+use crate::watcher::*;
 use crate::releasable::*;
 use crate::binding_context::*;
 use crate::rope_binding::core::*;
@@ -371,6 +372,18 @@ where
 
             rope_copy
         })
+    }
+
+    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<AttributedRope<Cell, Attribute>>> {
+        let watch_binding           = self.clone();
+        let (watcher, notifiable)   = NotifyWatcher::new(move || watch_binding.get(), what);
+
+        self.core.desync(move |core| {
+            core.when_changed.push(notifiable);
+            core.filter_unused_notifications();
+        });
+
+        Arc::new(watcher)
     }
 }
 
