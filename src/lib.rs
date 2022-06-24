@@ -295,6 +295,34 @@ mod test {
     }
 
     #[test]
+    fn watcher_does_not_notify_for_other_watchers() {
+        let bound           = bind(1);
+        let change_count    = bind(0);
+
+        let notify_count    = change_count.clone();
+        let watcher         = bound.watch(notify(move || { let count = notify_count.get(); notify_count.set(count+1) }));
+        let other_watcher   = bound.watch(notify(move || { }));
+
+        assert!(change_count.get() == 0);
+        bound.set(2);
+        assert!(change_count.get() == 0);
+
+        other_watcher.get();
+        bound.set(3);
+        assert!(change_count.get() == 0);
+
+        bound.set(4);
+        assert!(change_count.get() == 0);
+
+        bound.set(5);
+        assert!(change_count.get() == 0);
+
+        watcher.get();
+        bound.set(6);
+        assert!(change_count.get() == 1);
+    }
+
+    #[test]
     fn dispatches_multiple_notifications() {
         let bound           = bind(1);
         let change_count    = bind(0);
@@ -577,6 +605,30 @@ mod test {
         bound.set(3);
         assert!(changed.get() == true);
         assert!(computed.get() == 4);
+    }
+
+    #[test]
+    fn computed_watcher() {
+        let bound           = bind(1);
+
+        let computed_from   = bound.clone();
+        let computed        = computed(move || computed_from.get() + 1);
+
+        let changed         = bind(false);
+        let notify_changed  = changed.clone();
+        let watcher         = computed.watch(notify(move || notify_changed.set(true)));
+
+        assert!(watcher.get() == 2);
+        assert!(changed.get() == false);
+
+        bound.set(2);
+        assert!(changed.get() == true);
+        assert!(watcher.get() == 3);
+
+        changed.set(false);
+        bound.set(3);
+        assert!(changed.get() == true);
+        assert!(watcher.get() == 4);
     }
 
     #[test]

@@ -1,6 +1,7 @@
-use super::traits::*;
-use super::releasable::*;
-use super::binding_context::*;
+use crate::traits::*;
+use crate::watcher::*;
+use crate::releasable::*;
+use crate::binding_context::*;
 
 use std::sync::*;
 use std::mem;
@@ -19,8 +20,11 @@ use self::ComputedValue::*;
 ///
 /// Core representation ofa computed binding
 ///
-struct ComputedBindingCore<Value: 'static+Clone, TFn>
-where TFn: 'static+Fn() -> Value {
+struct ComputedBindingCore<Value, TFn>
+where
+    Value:  'static + Clone,
+    TFn:    'static + Fn() -> Value,
+{
     /// Function to call to recalculate this item
     calculate_value: TFn,
 
@@ -34,8 +38,11 @@ where TFn: 'static+Fn() -> Value {
     when_changed: Vec<ReleasableNotifiable>
 }
 
-impl<Value: 'static+Clone, TFn> ComputedBindingCore<Value, TFn>
-where TFn: 'static+Fn() -> Value {
+impl<Value, TFn> ComputedBindingCore<Value, TFn>
+where
+    Value:  'static + Clone,
+    TFn:    'static + Fn() -> Value,
+{
     ///
     /// Creates a new computed binding core item
     ///
@@ -99,8 +106,11 @@ where TFn: 'static+Fn() -> Value {
     }
 }
 
-impl<Value: 'static+Clone, TFn> Drop for ComputedBindingCore<Value, TFn>
-where TFn: 'static+Fn() -> Value {
+impl<Value, TFn> Drop for ComputedBindingCore<Value, TFn>
+where
+    Value:  'static + Clone,
+    TFn:    'static + Fn() -> Value,
+{
     fn drop(&mut self) {
         // No point receiving any notifications once the core has gone
         // (The notification can still fire if it has a weak reference)
@@ -113,14 +123,20 @@ where TFn: 'static+Fn() -> Value {
 ///
 /// Represents a binding to a value that is computed by a function
 ///
-pub struct ComputedBinding<Value: 'static+Clone, TFn>
-where TFn: 'static+Fn() -> Value {
+pub struct ComputedBinding<Value, TFn>
+where
+    Value:  'static + Clone,
+    TFn:    'static + Fn() -> Value,
+{
     /// The core where the binding data is stored
     core: Arc<Mutex<ComputedBindingCore<Value, TFn>>>
 }
 
-impl<Value: 'static+Clone+Send, TFn> ComputedBinding<Value, TFn>
-where TFn: 'static+Send+Sync+Fn() -> Value {
+impl<Value, TFn> ComputedBinding<Value, TFn>
+where
+    Value:  'static + Clone + Send,
+    TFn:    'static + Send + Sync + Fn() -> Value,
+{
     ///
     /// Creates a new computable binding
     ///
@@ -225,7 +241,10 @@ where TFn: 'static+Send+Sync+Fn() -> Value {
 /// notification is generated for such a reference.
 ///
 impl<Value, TFn> Notifiable for Weak<Mutex<ComputedBindingCore<Value, TFn>>>
-where Value: 'static+Clone+Send, TFn: 'static+Send+Sync+Fn() -> Value {
+where 
+    Value:  'static + Clone + Send,
+    TFn:    'static + Send + Sync + Fn() -> Value,
+{
     fn mark_as_changed(&self) {
         // If the reference is still active, reconstitute a computed binding in order to call the mark_changed method
         if let Some(to_notify) = self.upgrade() {
@@ -238,15 +257,21 @@ where Value: 'static+Clone+Send, TFn: 'static+Send+Sync+Fn() -> Value {
     }
 }
 
-impl<Value: 'static+Clone+Send, TFn> Clone for ComputedBinding<Value, TFn>
-where TFn: 'static+Send+Sync+Fn() -> Value {
+impl<Value, TFn> Clone for ComputedBinding<Value, TFn>
+where 
+    Value:  'static + Clone + Send, 
+    TFn:    'static + Send + Sync + Fn() -> Value,
+{
     fn clone(&self) -> Self {
         ComputedBinding { core: Arc::clone(&self.core) }
     }
 }
 
-impl<Value: 'static+Clone, TFn> Changeable for ComputedBinding<Value, TFn>
-where TFn: 'static+Send+Sync+Fn() -> Value {
+impl<Value, TFn> Changeable for ComputedBinding<Value, TFn>
+where 
+    Value:  'static + Clone + Send,
+    TFn:    'static + Send + Sync + Fn() -> Value,
+{
     fn when_changed(&self, what: Arc<dyn Notifiable>) -> Box<dyn Releasable> {
         let releasable = ReleasableNotifiable::new(what);
 
@@ -260,8 +285,11 @@ where TFn: 'static+Send+Sync+Fn() -> Value {
     }
 }
 
-impl<Value: 'static+Clone+Send, TFn> Bound<Value> for ComputedBinding<Value, TFn>
-where TFn: 'static+Send+Sync+Fn() -> Value {
+impl<Value, TFn> Bound<Value> for ComputedBinding<Value, TFn>
+where 
+    Value:  'static + Clone + Send, 
+    TFn:    'static + Send + Sync + Fn() -> Value,
+{
     fn get(&self) -> Value {
         // This is a dependency of the current binding context
         BindingContext::add_dependency(self.clone());
@@ -316,5 +344,15 @@ where TFn: 'static+Send+Sync+Fn() -> Value {
         }
 
         result
+    }
+
+    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>> {
+        let watch_binding           = self.clone();
+        let (watcher, notifiable)   = NotifyWatcher::new(move || watch_binding.get(), what);
+
+        self.core.lock().unwrap().when_changed.push(notifiable);
+        self.core.lock().unwrap().filter_unused_notifications();
+
+        Arc::new(watcher)
     }
 }
