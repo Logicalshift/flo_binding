@@ -1,6 +1,7 @@
-use super::traits::*;
-use super::releasable::*;
-use super::binding_context::*;
+use crate::traits::*;
+use crate::watcher::*;
+use crate::releasable::*;
+use crate::binding_context::*;
 
 use futures::prelude::*;
 use ::desync::*;
@@ -77,7 +78,10 @@ pub struct StreamBinding<Value: Send> {
 ///
 /// The data stored with a stream binding
 /// 
-struct StreamBindingCore<Value: Send> {
+struct StreamBindingCore<Value> 
+where
+    Value: Send
+{
     /// The current value of this binidng
     value: Arc<Mutex<Value>>,
 
@@ -85,7 +89,22 @@ struct StreamBindingCore<Value: Send> {
     notifications: Vec<ReleasableNotifiable>
 }
 
-impl<Value: 'static+Send+Clone> Bound<Value> for StreamBinding<Value> {
+impl<Value> StreamBindingCore<Value> 
+where
+    Value: Send
+{
+    ///
+    /// If there are any notifiables in this object that aren't in use, remove them
+    ///
+    pub fn filter_unused_notifications(&mut self) {
+        self.notifications.retain(|releasable| releasable.is_in_use());
+    }
+}
+
+impl<Value> Bound<Value> for StreamBinding<Value>
+where
+    Value: 'static + Send + Clone
+{
     ///
     /// Retrieves the value stored by this binding
     ///
@@ -95,9 +114,21 @@ impl<Value: 'static+Send+Clone> Bound<Value> for StreamBinding<Value> {
         let value = self.value.lock().unwrap();
         (*value).clone()
     }
+
+    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>> {
+        let watch_binding           = self.clone();
+        let (watcher, notifiable)   = NotifyWatcher::new(move || watch_binding.get(), what);
+
+        self.core.sync(move |core| {
+            core.notifications.push(notifiable);
+            core.filter_unused_notifications();
+        });
+
+        Arc::new(watcher)
+    }
 }
 
-impl<Value: 'static+Send> Changeable for StreamBinding<Value> {
+impl<Value: 'static + Send> Changeable for StreamBinding<Value> {
     ///
     /// Supplies a function to be notified when this item is changed
     ///
@@ -109,6 +140,7 @@ impl<Value: 'static+Send> Changeable for StreamBinding<Value> {
         // Send to the core
         self.core.sync(move |core| {
             core.notifications.push(notifiable);
+            core.filter_unused_notifications();
         });
 
         // Return the releasable object
@@ -175,6 +207,38 @@ mod test {
         // Should be initially un-notified
         thread::sleep(Duration::from_millis(5));
         assert!(*notified.lock().unwrap() == false);
+
+        executor::block_on(async {
+            // Send a value to the sender
+            sender.send(42).await.unwrap();
+
+            // Should get notified
+            thread::sleep(Duration::from_millis(5));
+            assert!(*notified.lock().unwrap() == true);
+            assert!(binding.get() == 42);
+        })
+    }
+
+    #[test]
+    pub fn watcher_notifies_on_change() {
+        // Create somewhere to send our notifications
+        let (mut sender, receiver) = mpsc::channel(0);
+
+        // Send the receiver stream to a new binding
+        let binding         = bind_stream(receiver, 0, |_old_value, new_value| new_value);
+
+        // Create the notification
+        let notified        = Arc::new(Mutex::new(false));
+        let also_notified   = Arc::clone(&notified);
+
+        let watcher = binding.watch(notify(move || *also_notified.lock().unwrap() = true));
+
+        // Should be initially un-notified
+        thread::sleep(Duration::from_millis(5));
+        assert!(*notified.lock().unwrap() == false);
+
+        // Read the value from the watcher so it notifies
+        watcher.get();
 
         executor::block_on(async {
             // Send a value to the sender
