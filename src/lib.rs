@@ -448,6 +448,20 @@ mod test {
     }
 
     #[test]
+    fn map_binding_value() {
+        let bound           = bind(1);
+        let mapped          = bound.map_binding(|val| val + 1);
+
+        assert!(mapped.get() == 2);
+
+        bound.set(2);
+        assert!(mapped.get() == 3);
+
+        bound.set(3);
+        assert!(mapped.get() == 4);
+    }
+
+    #[test]
     fn can_recursively_compute_values() {
         let bound               = bind(1);
 
