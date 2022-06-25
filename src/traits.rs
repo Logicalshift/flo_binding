@@ -1,3 +1,4 @@
+use crate::bindref::*;
 use crate::map_binding::*;
 
 use std::sync::*;
@@ -122,9 +123,51 @@ pub trait Watcher<TValue> {
 }
 
 ///
-/// Extension functions provided for all implementations of the `Bound<Value>` interface
+/// Provides the `compute()` function for bindings and compatible types
 ///
-pub trait BoundValueExt {
+pub trait BoundValueComputeExt : Sized {
+    /// 
+    /// Transforms the value of this binding using a compute function
+    ///
+    /// This is generally used as a convenience function. It's often necessary to create copies of the
+    /// bindings and move them into the closure for `computed()`, which can add a lot of extra code and
+    /// requires some sort of naming convention to distinguish the originals and the copies.
+    ///
+    /// ```
+    /// # use flo_binding::*;
+    /// let some_binding        = bind(1);
+    /// let also_some_binding   = some_binding.clone();
+    /// let mapped              = computed(move || also_some_binding.get() + 1);
+    /// ```
+    ///
+    /// The clone can be avoided using the `compute()` function:
+    ///
+    /// ```
+    /// # use flo_binding::*;
+    /// let some_binding    = bind(1);
+    /// let mapped          = some_binding.compute(|val| val.get() + 1);
+    /// ```
+    ///
+    /// This is supported on tuples of bindings too:
+    ///
+    /// ```
+    /// # use flo_binding::*;
+    /// let some_binding    = bind(1);
+    /// let another_binding = bind(2);
+    /// let mapped          = (some_binding, another_binding)
+    ///     .compute(|(some_binding, another_binding)| some_binding.get() + another_binding.get());
+    /// ```
+    ///
+    fn compute<TResultValue, TComputeFn>(&self, map_fn: TComputeFn) -> BindRef<TResultValue>
+    where
+        TResultValue:   'static + Clone + Send,
+        TComputeFn:     'static + Send + Sync + Fn(&Self) -> TResultValue;
+}
+
+///
+/// Provides the map function for bindings
+///
+pub trait BoundValueMapExt {
     type Value;
 
     /// 
