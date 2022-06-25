@@ -124,6 +124,15 @@ pub trait BoundValueExt<TValue> {
     /// let mapped          = some_binding.map(|val| val + 1);
     /// ```
     ///
+    /// There's also a way to do this using an async stream binding, if flo_binding is compiled with
+    /// the stream feature enabled:
+    ///
+    /// ```
+    /// # use flo_binding::*;
+    /// let some_binding    = bind(1);
+    /// let mapped          = bind_stream(follow(some_binding.clone()), 1, |_last_val, val| val + 1);
+    /// ```
+    ///
     fn map<TMapValue, TMapFn>(&self, map_fn: TMapFn) -> MapBinding<TValue, TMapValue, TMapFn>
     where
         TMapValue:  'static + Clone + Send,
