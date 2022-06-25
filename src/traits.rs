@@ -105,7 +105,9 @@ pub trait MutableBound : Bound {
 ///
 /// Extension functions provided for all implementations of the `Bound<Value>` interface
 ///
-pub trait BoundValueExt<TValue> {
+pub trait BoundValueExt {
+    type Value;
+
     /// 
     /// Transforms the value of this binding using a mapping function
     ///
@@ -120,10 +122,10 @@ pub trait BoundValueExt<TValue> {
     ///
     /// Could also be written like this using this `map()` function:
     ///
-    /// ```ignore
+    /// ```
     /// # use flo_binding::*;
     /// let some_binding    = bind(1);
-    /// let mapped          = some_binding.map(|val| val + 1);
+    /// let mapped          = some_binding.map_binding(|val| val + 1);
     /// ```
     ///
     /// There's also a way to do this using an async stream binding, if flo_binding is compiled with
@@ -135,8 +137,8 @@ pub trait BoundValueExt<TValue> {
     /// let mapped          = bind_stream(follow(some_binding.clone()), 1, |_last_val, val| val + 1);
     /// ```
     ///
-    fn map<TMapValue, TMapFn>(&self, map_fn: TMapFn) -> MapBinding<TValue, TMapValue, TMapFn>
+    fn map_binding<TMapValue, TMapFn>(&self, map_fn: TMapFn) -> MapBinding<Self, TMapValue, TMapFn>
     where
         TMapValue:  'static + Clone + Send,
-        TMapFn:     'static + Send + Sync + Fn(TValue) -> TMapValue;
+        TMapFn:     'static + Send + Sync + Fn(Self::Value) -> TMapValue;
 }

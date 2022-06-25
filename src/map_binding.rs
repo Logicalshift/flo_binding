@@ -10,7 +10,7 @@ use std::sync::*;
 /// A map binding is a type of computed binding created by the `BoundValueExt::map()` function
 ///
 #[derive(Clone)]
-pub struct MapBinding<TBinding, TMapValue, TMapFn> {
+pub struct MapBinding<TBinding: ?Sized, TMapValue, TMapFn> {
     /// Reference to a computed binding that performs the map function
     computed: Arc<dyn Bound<Value=TMapValue>>,
 
