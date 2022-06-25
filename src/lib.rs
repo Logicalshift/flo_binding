@@ -462,6 +462,27 @@ mod test {
     }
 
     #[test]
+    fn watch_mapped_bindings() {
+        let bound           = bind(1);
+        let mapped          = bound.map_binding(|val| val + 1);
+
+        let change_count    = bind(0);
+        let change_counter  = change_count.clone();
+        let watcher         = mapped.watch(notify(move || change_counter.set(change_counter.get() + 1)));
+
+        assert!(watcher.get() == 2);
+
+        bound.set(2);
+        assert!(watcher.get() == 3);
+        assert!(change_count.get() == 1);
+
+        bound.set(3);
+        assert!(watcher.get() == 4);
+        assert!(change_count.get() == 2);
+    }
+
+
+    #[test]
     fn can_recursively_compute_values() {
         let bound               = bind(1);
 
