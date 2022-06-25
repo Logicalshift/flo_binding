@@ -189,7 +189,10 @@ pub use self::rope_binding::*;
 ///
 /// Creates a simple bound value with the specified initial value
 ///
-pub fn bind<Value: Clone+PartialEq>(val: Value) -> Binding<Value> {
+pub fn bind<Value>(val: Value) -> Binding<Value>
+where
+    Value: Clone + PartialEq,
+{
     Binding::new(val)
 }
 
@@ -197,7 +200,10 @@ pub fn bind<Value: Clone+PartialEq>(val: Value) -> Binding<Value> {
 /// Creates a computed value that tracks bindings accessed during the function call and marks itself as changed when any of these dependencies also change
 ///
 pub fn computed<Value, TFn>(calculate_value: TFn) -> ComputedBinding<Value, TFn>
-where Value: Clone+Send, TFn: 'static+Send+Sync+Fn() -> Value {
+where 
+    Value:  Clone + Send, 
+    TFn:    'static + Send + Sync + Fn() -> Value,
+{
     ComputedBinding::new(calculate_value)
 }
 
