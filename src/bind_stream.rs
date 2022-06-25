@@ -10,6 +10,19 @@ use std::sync::*;
 
 ///
 /// Uses a stream to update a binding
+///
+/// This is the inverse of the `follow()` function, which can turn a binding into a stream.
+///
+/// This is particularly useful for changing a stream of events into a binding. The update function receives the
+/// previous value of the binding and the next item from the stream so it's possible to update a previous state
+/// to a new state based on an event.
+///
+/// All values from the stream are consumed, but as with all bindings, only the most recent state will be seen
+/// when retrieving values by calling `get()` or when following the stream using `follow()`.
+///
+/// If you need a binding where all of the states are available, one approach would be to use a `Publisher` from 
+/// the `flo_stream` crate alongside `bind_stream()`: it supports multiple subscribers so it's possible to follow
+/// all of the states from elsewhere.
 /// 
 pub fn bind_stream<S, Value, UpdateFn>(stream: S, initial_value: Value, update: UpdateFn) -> StreamBinding<Value>
 where

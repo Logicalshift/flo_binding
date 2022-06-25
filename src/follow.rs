@@ -84,6 +84,13 @@ where
 
 ///
 /// Creates a stream from a binding
+///
+/// This is the reverse operation from `bind_stream()`, which will turn a stream into a binding.
+///
+/// Binding streams will only return the most recent state of the binding when it's requested: ie, they 
+/// will skip states if a newer state is available. For this reason, don't try to treat `FollowStream`s
+/// as if they work like mpsc channels. If you need a binding where all of the states are available,
+/// one approach would be to use a `Publisher` from the `flo_stream` crate alongside `bind_stream()`.
 /// 
 pub fn follow<Binding>(binding: Binding) -> FollowStream<Binding>
 where
