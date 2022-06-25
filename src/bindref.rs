@@ -1,6 +1,5 @@
 use crate::traits::*;
 use crate::binding::*;
-use crate::watcher::*;
 use crate::computed::*;
 #[cfg(feature = "stream")]
 use super::bind_stream::*;
