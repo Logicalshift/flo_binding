@@ -164,6 +164,7 @@ mod bindref;
 mod notify_fn;
 mod releasable;
 mod watcher;
+mod map_binding;
 #[cfg(feature = "stream")]
 mod follow;
 #[cfg(feature = "stream")]
@@ -177,6 +178,7 @@ pub use self::computed::*;
 pub use self::bindref::*;
 pub use self::notify_fn::*;
 pub use self::watcher::*;
+pub use self::map_binding::*;
 #[cfg(feature = "stream")]
 pub use self::follow::*;
 #[cfg(feature = "stream")]

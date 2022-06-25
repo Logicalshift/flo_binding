@@ -1,4 +1,5 @@
 use crate::watcher::*;
+use crate::map_binding::*;
 
 use std::sync::*;
 
@@ -97,4 +98,34 @@ pub trait MutableBound<Value> : Bound<Value> {
     /// Sets the value stored by this binding
     ///
     fn set(&self, new_value: Value);
+}
+
+///
+/// Extension functions provided for all implementations of the `Bound<Value>` interface
+///
+pub trait BoundValueExt<TValue> {
+    /// 
+    /// Transforms the value of this binding using a mapping function
+    ///
+    /// This will track other bindings used in the mapping like `computed()` does: that is, this:
+    ///
+    /// ```
+    /// # use flo_binding::*;
+    /// let some_binding        = bind(1);
+    /// let also_some_binding   = some_binding.clone();
+    /// let mapped              = computed(move || also_some_binding.get() + 1);
+    /// ```
+    ///
+    /// Could also be written like this using this `map()` function:
+    ///
+    /// ```ignore
+    /// # use flo_binding::*;
+    /// let some_binding    = bind(1);
+    /// let mapped          = some_binding.map(|val| val + 1);
+    /// ```
+    ///
+    fn map<TMapValue, TMapFn>(&self, map_fn: TMapFn) -> MapBinding<TValue, TMapValue, TMapFn>
+    where
+        TMapValue:  'static + Clone + Send,
+        TMapFn:     'static + Send + Sync + Fn(TValue) -> TMapValue;
 }
