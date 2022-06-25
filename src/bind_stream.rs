@@ -38,33 +38,36 @@ where
         notifications:  vec![]
     };
 
+    let stream      = stream.ready_chunks(20);
     let core        = Arc::new(Desync::new(core));
     let mut update  = update;
 
     // Send in the stream
     pipe_in(Arc::clone(&core), stream, 
-        move |core, next_item| {
-            // Only lock the value while updating it
-            let need_to_notify = {
-                // Update the value
-                let mut value = core.value.lock().unwrap();
-                let new_value = update((*value).clone(), next_item);
+        move |core, next_items| {
+            for next_item in next_items {
+                // Only lock the value while updating it
+                let need_to_notify = {
+                    // Update the value
+                    let mut value = core.value.lock().unwrap();
+                    let new_value = update((*value).clone(), next_item);
 
-                if new_value != *value {
-                    // Update the value in the core
-                    *value = new_value;
+                    if new_value != *value {
+                        // Update the value in the core
+                        *value = new_value;
 
-                    // Notify anything that's listening
-                    true
-                } else {
-                    false
+                        // Notify anything that's listening
+                        true
+                    } else {
+                        false
+                    }
+                };
+
+                // If the update changed the value, then call the notifications (with the lock released, in case any try to read the value)
+                if need_to_notify {
+                    core.notifications.retain(|notify| notify.is_in_use());
+                    core.notifications.iter().for_each(|notify| { notify.mark_as_changed(); });
                 }
-            };
-
-            // If the update changed the value, then call the notifications (with the lock released, in case any try to read the value)
-            if need_to_notify {
-                core.notifications.retain(|notify| notify.is_in_use());
-                core.notifications.iter().for_each(|notify| { notify.mark_as_changed(); });
             }
 
             Box::pin(future::ready(()))
