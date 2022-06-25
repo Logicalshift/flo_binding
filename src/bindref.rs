@@ -16,17 +16,19 @@ use std::sync::*;
 /// Cloning a `BindRef` will create another reference to the same binding.
 /// 
 pub struct BindRef<Target> {
-    reference: Arc<dyn Bound<Target>>
+    reference: Arc<dyn Bound<Value=Target>>
 }
 
-impl<Value> Bound<Value> for BindRef<Value> {
+impl<TValue> Bound for BindRef<TValue> {
+    type Value = TValue;
+
     #[inline]
-    fn get(&self) -> Value {
+    fn get(&self) -> Self::Value {
         self.reference.get()
     }
 
     #[inline]
-    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>> {
+    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Self::Value>> {
         self.reference.watch(what)
     }
 }
@@ -46,12 +48,15 @@ impl<Value> Clone for BindRef<Value> {
     }
 }
 
-impl<Value> BindRef<Value> {
+impl<TValue> BindRef<TValue> {
     ///
     /// Creates a new BindRef from a reference to an existing binding
     /// 
     #[inline]
-    pub fn new<Binding: 'static+Clone+Bound<Value>>(binding: &Binding) -> BindRef<Value> {
+    pub fn new<Binding>(binding: &Binding) -> BindRef<TValue> 
+    where
+        Binding: 'static + Clone + Bound<Value=TValue>,
+    {
         BindRef {
             reference: Arc::new(binding.clone())
         }
@@ -61,7 +66,10 @@ impl<Value> BindRef<Value> {
     /// Creates a new BindRef from an existing binding
     /// 
     #[inline]
-    pub fn from_arc<Binding: 'static+Bound<Value>>(binding_ref: Arc<Binding>) -> BindRef<Value> {
+    pub fn from_arc<Binding>(binding_ref: Arc<Binding>) -> BindRef<TValue>
+    where
+        Binding: 'static + Bound<Value=TValue>,
+    {
         BindRef {
             reference: binding_ref
         }

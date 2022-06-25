@@ -12,5 +12,4 @@ where
     TValue: 'static + Clone + Send,
     TMapFn: 'static + Send + Sync + Fn(TValue) -> TMapValue 
 {
-
 }

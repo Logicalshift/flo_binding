@@ -8,10 +8,11 @@ use flo_rope::*;
 ///
 /// Ropes are collections of values with optional attributes applied to them.
 ///
-pub trait BoundRope<Cell, Attribute> : Bound<AttributedRope<Cell, Attribute>> 
+pub trait BoundRope<Cell, Attribute> : Bound<Value = AttributedRope<Cell, Attribute>> 
 where 
-Cell:       'static+Send+Unpin+Clone+PartialEq,
-Attribute:  'static+Send+Sync+Clone+Unpin+PartialEq+Default {
+    Cell:       'static + Send + Unpin + Clone + PartialEq,
+    Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default
+{
     /// Follows the changes to the bound rope as a stream
     fn follow_changes(&self) -> RopeStream<Cell, Attribute>;
 

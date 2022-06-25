@@ -433,11 +433,13 @@ where
 ///
 /// Trait implemented by something that is bound to a value
 ///
-impl<Cell, Attribute> Bound<AttributedRope<Cell, Attribute>> for RopeBinding<Cell, Attribute>
+impl<Cell, Attribute> Bound for RopeBinding<Cell, Attribute>
 where 
     Cell:       'static + Send + Unpin + Clone + PartialEq,
     Attribute:  'static + Send + Sync + Clone + Unpin + PartialEq + Default
 {
+    type Value = AttributedRope<Cell, Attribute>;
+
     ///
     /// Retrieves the value stored by this binding
     ///

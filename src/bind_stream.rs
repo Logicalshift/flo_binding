@@ -101,21 +101,23 @@ where
     }
 }
 
-impl<Value> Bound<Value> for StreamBinding<Value>
+impl<TValue> Bound for StreamBinding<TValue>
 where
-    Value: 'static + Send + Clone
+    TValue: 'static + Send + Clone
 {
+    type Value = TValue;
+
     ///
     /// Retrieves the value stored by this binding
     ///
-    fn get(&self) -> Value {
+    fn get(&self) -> Self::Value {
         BindingContext::add_dependency(self.clone());
 
         let value = self.value.lock().unwrap();
         (*value).clone()
     }
 
-    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>> {
+    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Self::Value>> {
         let watch_binding           = self.clone();
         let (watcher, notifiable)   = NotifyWatcher::new(move || watch_binding.get(), what);
 

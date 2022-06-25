@@ -50,11 +50,13 @@ pub trait Changeable {
 ///
 /// Trait implemented by something that is bound to a value
 ///
-pub trait Bound<Value> : Changeable + Send + Sync {
+pub trait Bound : Changeable + Send + Sync {
+    type Value;
+
     ///
     /// Retrieves the value stored by this binding
     ///
-    fn get(&self) -> Value;
+    fn get(&self) -> Self::Value;
 
     ///
     /// Creates a watcher: this provides a way to retrieve the value stored in this 
@@ -63,7 +65,7 @@ pub trait Bound<Value> : Changeable + Send + Sync {
     ///
     /// This is a non-async version of the `follow()` function.
     ///
-    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>>;
+    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Self::Value>>;
 }
 
 ///
@@ -93,11 +95,11 @@ pub trait WithBound<Value>: Changeable + Send + Sync {
 /// Bindings are similar in behaviour to Arc<Mutex<Value>>, so it's possible to set 
 /// the value of their target even when the binding itself is not mutable.
 ///
-pub trait MutableBound<Value> : Bound<Value> {
+pub trait MutableBound : Bound {
     ///
     /// Sets the value stored by this binding
     ///
-    fn set(&self, new_value: Value);
+    fn set(&self, new_value: Self::Value);
 }
 
 ///

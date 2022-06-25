@@ -140,14 +140,19 @@ impl<Value: 'static+Clone+PartialEq+Send> Changeable for Binding<Value> {
     }
 }
 
-impl<Value: 'static+Clone+PartialEq+Send> Bound<Value> for Binding<Value> {
-    fn get(&self) -> Value {
+impl<TValue> Bound for Binding<TValue> 
+where
+    TValue: 'static + Clone + PartialEq + Send,
+{
+    type Value = TValue;
+
+    fn get(&self) -> Self::Value {
         BindingContext::add_dependency(self.clone());
 
         self.value.lock().unwrap().get()
     }
 
-    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>> {
+    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Self::Value>> {
         let watch_binding           = self.clone();
         let (watcher, notifiable)   = NotifyWatcher::new(move || watch_binding.get(), what);
 
@@ -158,7 +163,10 @@ impl<Value: 'static+Clone+PartialEq+Send> Bound<Value> for Binding<Value> {
     }
 }
 
-impl<Value: 'static+Clone+PartialEq+Send> MutableBound<Value> for Binding<Value> {
+impl<Value> MutableBound for Binding<Value> 
+where
+    Value: 'static + Clone + PartialEq + Send
+{
     fn set(&self, new_value: Value) {
         // Update the value with the lock held
         let notifications = {

@@ -7,7 +7,6 @@ use futures::task::{Poll};
 
 use std::pin::{Pin};
 use std::sync::*;
-use std::marker::PhantomData;
 
 ///
 /// The state of the binding for a follow stream
@@ -21,7 +20,7 @@ enum FollowState {
 ///
 /// Core data structures for a follow stream
 /// 
-struct FollowCore<TValue, Binding: Bound<TValue>> {
+struct FollowCore<Binding: Bound> {
     /// Changed if the binding value has changed, or Unchanged if it is not changed
     state: FollowState,
 
@@ -30,32 +29,29 @@ struct FollowCore<TValue, Binding: Bound<TValue>> {
 
     /// The binding that this is following
     binding: Arc<Binding>,
-
-    /// Value is stored in the binding
-    value: PhantomData<TValue>
 }
 
 ///
 /// Stream that follows the values of a binding
 /// 
-pub struct FollowStream<TValue: Send, Binding: Bound<TValue>> 
+pub struct FollowStream<Binding> 
 where 
-    TValue:     Send,
-    Binding:    Bound<TValue>,
+    Binding:            Bound,
+    Binding::Value:     Send,
 {
     /// The core of this future
-    core: Arc<Mutex<FollowCore<TValue, Binding>>>,
+    core: Arc<Mutex<FollowCore<Binding>>>,
 
     /// Lifetime of the watcher
     _watcher: Box<dyn Releasable>,
 }
 
-impl<TValue, Binding> Stream for FollowStream<TValue, Binding>
+impl<Binding> Stream for FollowStream<Binding>
 where
-    TValue:     'static + Send,
-    Binding:    'static + Bound<TValue>,
+    Binding:        'static + Bound,
+    Binding::Value: 'static + Send,
 {
-    type Item   = TValue;
+    type Item   = Binding::Value;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context) -> Poll<Option<Self::Item>> {
         // If the core is in a 'changed' state, return the binding so we can fetch it
@@ -89,17 +85,16 @@ where
 ///
 /// Creates a stream from a binding
 /// 
-pub fn follow<TValue, Binding>(binding: Binding) -> FollowStream<TValue, Binding>
+pub fn follow<Binding>(binding: Binding) -> FollowStream<Binding>
 where
-    TValue:     'static + Send,
-    Binding:    'static + Bound<TValue>,
+    Binding:        'static + Bound,
+    Binding::Value: 'static + Send,
 {
     // Generate the initial core
     let core = FollowCore {
         state:      FollowState::Changed,
         notify:     None,
         binding:    Arc::new(binding),
-        value:      PhantomData
     };
 
     // Notify whenever the binding changes

@@ -285,12 +285,14 @@ where
     }
 }
 
-impl<Value, TFn> Bound<Value> for ComputedBinding<Value, TFn>
+impl<TValue, TFn> Bound for ComputedBinding<TValue, TFn>
 where 
-    Value:  'static + Clone + Send, 
-    TFn:    'static + Send + Sync + Fn() -> Value,
+    TValue:  'static + Clone + Send, 
+    TFn:    'static + Send + Sync + Fn() -> TValue,
 {
-    fn get(&self) -> Value {
+    type Value = TValue;
+
+    fn get(&self) -> Self::Value {
         // This is a dependency of the current binding context
         BindingContext::add_dependency(self.clone());
 
@@ -346,7 +348,7 @@ where
         result
     }
 
-    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Value>> {
+    fn watch(&self, what: Arc<dyn Notifiable>) -> Arc<dyn Watcher<Self::Value>> {
         let watch_binding           = self.clone();
         let (watcher, notifiable)   = NotifyWatcher::new(move || watch_binding.get(), what);
 
