@@ -162,7 +162,7 @@ mod binding;
 mod computed;
 mod bindref;
 mod notify_fn;
-mod releasable;
+pub mod releasable;
 mod watcher;
 mod map_binding;
 mod ext;
