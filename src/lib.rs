@@ -180,7 +180,6 @@ pub use self::bindref::*;
 pub use self::notify_fn::*;
 pub use self::watcher::*;
 pub use self::map_binding::*;
-pub use self::ext::*;
 #[cfg(feature = "stream")]
 pub use self::follow::*;
 #[cfg(feature = "stream")]
